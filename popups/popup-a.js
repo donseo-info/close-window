@@ -15,7 +15,6 @@
     var s = document.createElement("style");
     s.id = "pa-styles";
     s.textContent = [
-      "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Open+Sans:wght@400;600&display=swap');",
 
       "#pa-overlay{",
         "position:fixed;inset:0;z-index:99999;",
@@ -46,18 +45,18 @@
       ".pa-badge{",
         "display:inline-block;",
         "background:rgba(255,255,255,.18);",
-        "color:#fff;font-family:'Open Sans',sans-serif;",
+        "color:#fff;font-family:system-ui,'Segoe UI',sans-serif;",
         "font-size:11px;font-weight:600;letter-spacing:.1em;",
         "text-transform:uppercase;padding:3px 10px;",
         "border-radius:20px;margin-bottom:8px;",
       "}",
       ".pa-head h2{",
-        "font-family:'Montserrat',sans-serif;font-weight:800;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-weight:800;",
         "font-size:clamp(20px,5vw,26px);",
         "color:#fff;margin:0 0 4px;line-height:1.15;",
       "}",
       ".pa-head p{",
-        "font-family:'Open Sans',sans-serif;",
+        "font-family:system-ui,'Segoe UI',sans-serif;",
         "font-size:14px;color:rgba(255,255,255,.85);margin:0;",
       "}",
 
@@ -71,16 +70,16 @@
         "padding:6px 10px;min-width:46px;text-align:center;",
       "}",
       ".pa-t-num{",
-        "display:block;font-family:'Montserrat',sans-serif;",
+        "display:block;font-family:system-ui,'Segoe UI',sans-serif;",
         "font-size:22px;font-weight:800;color:#fff;line-height:1;",
       "}",
       ".pa-t-lbl{",
-        "display:block;font-family:'Open Sans',sans-serif;",
+        "display:block;font-family:system-ui,'Segoe UI',sans-serif;",
         "font-size:9px;color:rgba(255,255,255,.65);",
         "text-transform:uppercase;letter-spacing:.06em;margin-top:2px;",
       "}",
       ".pa-t-sep{",
-        "font-family:'Montserrat',sans-serif;",
+        "font-family:system-ui,'Segoe UI',sans-serif;",
         "font-size:22px;font-weight:800;color:rgba(255,255,255,.5);",
         "align-self:flex-start;padding-top:6px;",
       "}",
@@ -89,7 +88,7 @@
       ".pa-body{padding:22px 28px 26px;}",
 
       ".pa-phone-label{",
-        "font-family:'Open Sans',sans-serif;",
+        "font-family:system-ui,'Segoe UI',sans-serif;",
         "font-size:13px;font-weight:600;color:#333;",
         "display:block;margin-bottom:6px;",
       "}",
@@ -97,7 +96,7 @@
         "width:100%;box-sizing:border-box;",
         "border:2px solid #e5e5e5;border-radius:6px;",
         "padding:11px 14px;",
-        "font-family:'Open Sans',sans-serif;font-size:15px;color:#111;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:15px;color:#111;",
         "outline:none;transition:border-color .2s;",
       "}",
       ".pa-phone::placeholder{color:#bbb;}",
@@ -105,7 +104,7 @@
 
       /* мессенджеры */
       ".pa-msg-label{",
-        "font-family:'Open Sans',sans-serif;",
+        "font-family:system-ui,'Segoe UI',sans-serif;",
         "font-size:12px;color:#888;margin:14px 0 8px;display:block;",
       "}",
       ".pa-messengers{",
@@ -114,7 +113,7 @@
       ".pa-m-btn{",
         "flex:1;display:flex;align-items:center;justify-content:center;gap:6px;",
         "padding:9px 0;border-radius:6px;border:2px solid transparent;",
-        "font-family:'Open Sans',sans-serif;font-size:12px;font-weight:600;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:12px;font-weight:600;",
         "cursor:pointer;transition:all .18s;",
       "}",
       ".pa-m-btn.tg{background:#e8f4fd;border-color:#e8f4fd;color:#0088cc;}",
@@ -128,7 +127,7 @@
         "width:100%;margin-top:14px;",
         "background:#e02020;border:none;border-radius:6px;",
         "padding:13px;",
-        "font-family:'Montserrat',sans-serif;font-size:15px;font-weight:700;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:15px;font-weight:700;",
         "color:#fff;cursor:pointer;letter-spacing:.02em;",
         "transition:background .18s,transform .15s;",
       "}",
@@ -136,7 +135,7 @@
       ".pa-submit:active{transform:translateY(0);}",
 
       ".pa-agree{",
-        "font-family:'Open Sans',sans-serif;font-size:11px;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:11px;",
         "color:#bbb;text-align:center;margin-top:10px;",
       "}",
 
@@ -153,8 +152,8 @@
       /* success */
       ".pa-success{text-align:center;padding:32px 20px;}",
       ".pa-success-ico{font-size:48px;display:block;margin-bottom:12px;}",
-      ".pa-success h3{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;color:#e02020;margin:0 0 8px;}",
-      ".pa-success p{font-family:'Open Sans',sans-serif;font-size:14px;color:#666;margin:0;}",
+      ".pa-success h3{font-family:system-ui,'Segoe UI',sans-serif;font-size:20px;font-weight:800;color:#e02020;margin:0 0 8px;}",
+      ".pa-success p{font-family:system-ui,'Segoe UI',sans-serif;font-size:14px;color:#666;margin:0;}",
     ].join("");
     document.head.appendChild(s);
   }

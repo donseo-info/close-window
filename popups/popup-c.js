@@ -13,8 +13,6 @@
     var s = document.createElement("style");
     s.id = "pc-styles";
     s.textContent = [
-      "@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Condensed:wght@700&display=swap');",
-
       "#pc-overlay{",
         "position:fixed;inset:0;z-index:99999;",
         "background:rgba(10,20,40,.55);",
@@ -47,12 +45,12 @@
         "top:-60px;right:-50px;pointer-events:none;",
       "}",
       ".pc-head-label{",
-        "font-family:'Roboto',sans-serif;font-size:12px;font-weight:500;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:12px;font-weight:500;",
         "color:rgba(255,255,255,.7);letter-spacing:.08em;",
         "text-transform:uppercase;display:block;margin-bottom:5px;",
       "}",
       ".pc-head h2{",
-        "font-family:'Roboto Condensed',sans-serif;font-weight:700;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-weight:700;",
         "font-size:clamp(18px,4.5vw,23px);",
         "color:#fff;margin:0 0 14px;line-height:1.2;",
       "}",
@@ -61,7 +59,7 @@
       ".pc-progress-row{",
         "display:flex;align-items:center;justify-content:space-between;",
         "margin-bottom:5px;",
-        "font-family:'Roboto',sans-serif;font-size:12px;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:12px;",
         "color:rgba(255,255,255,.65);",
       "}",
       ".pc-pct{font-weight:700;color:#fff;font-size:14px;}",
@@ -96,7 +94,7 @@
       "}",
       ".pc-list li{",
         "display:flex;align-items:center;gap:9px;",
-        "font-family:'Roboto',sans-serif;font-size:13px;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:13px;",
         "color:#bbb;",
       "}",
       ".pc-list li.done{color:#333;}",
@@ -109,21 +107,21 @@
 
       /* форма */
       ".pc-label{",
-        "font-family:'Roboto',sans-serif;font-size:13px;font-weight:500;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:13px;font-weight:500;",
         "color:#333;display:block;margin-bottom:6px;",
       "}",
       ".pc-phone{",
         "width:100%;box-sizing:border-box;",
         "border:1.5px solid #dde2ee;border-radius:7px;",
         "padding:11px 14px;",
-        "font-family:'Roboto',sans-serif;font-size:15px;color:#111;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:15px;color:#111;",
         "outline:none;transition:border-color .2s;background:#f9fbff;",
       "}",
       ".pc-phone::placeholder{color:#bbb;}",
       ".pc-phone:focus{border-color:#2563eb;background:#fff;}",
 
       ".pc-msg-label{",
-        "font-family:'Roboto',sans-serif;font-size:12px;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:12px;",
         "color:#aaa;margin:12px 0 7px;display:block;",
       "}",
       ".pc-messengers{display:flex;gap:7px;}",
@@ -131,7 +129,7 @@
         "flex:1;display:flex;align-items:center;justify-content:center;gap:5px;",
         "padding:9px 0;border-radius:7px;",
         "border:1.5px solid #e5e5e5;background:#fafafa;",
-        "font-family:'Roboto',sans-serif;font-size:12px;font-weight:500;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:12px;font-weight:500;",
         "color:#666;cursor:pointer;transition:all .18s;",
       "}",
       ".pc-m.tg:hover,.pc-m.tg.sel{background:#0088cc;border-color:#0088cc;color:#fff;}",
@@ -142,7 +140,7 @@
         "width:100%;margin-top:13px;",
         "background:#2563eb;border:none;border-radius:7px;",
         "padding:13px;",
-        "font-family:'Roboto',sans-serif;font-size:15px;font-weight:700;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:15px;font-weight:700;",
         "color:#fff;cursor:pointer;",
         "transition:background .18s,transform .15s;",
         "display:flex;align-items:center;justify-content:center;gap:7px;",
@@ -151,7 +149,7 @@
       ".pc-btn:active{transform:translateY(0);}",
 
       ".pc-fine{",
-        "font-family:'Roboto',sans-serif;font-size:11px;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:11px;",
         "color:#ccc;text-align:center;margin-top:9px;",
       "}",
 
@@ -168,8 +166,8 @@
       /* success */
       ".pc-ok{text-align:center;padding:28px 16px;}",
       ".pc-ok-ico{font-size:46px;display:block;margin-bottom:10px;}",
-      ".pc-ok h3{font-family:'Roboto Condensed',sans-serif;font-size:21px;font-weight:700;color:#2563eb;margin:0 0 6px;}",
-      ".pc-ok p{font-family:'Roboto',sans-serif;font-size:14px;color:#888;margin:0;}",
+      ".pc-ok h3{font-family:system-ui,'Segoe UI',sans-serif;font-size:21px;font-weight:700;color:#2563eb;margin:0 0 6px;}",
+      ".pc-ok p{font-family:system-ui,'Segoe UI',sans-serif;font-size:14px;color:#888;margin:0;}",
     ].join("");
     document.head.appendChild(s);
   }

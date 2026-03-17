@@ -13,8 +13,6 @@
     var s = document.createElement("style");
     s.id = "pb-styles";
     s.textContent = [
-      "@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap');",
-
       "#pb-overlay{",
         "position:fixed;inset:0;z-index:99999;",
         "background:rgba(0,0,0,.48);",
@@ -54,12 +52,12 @@
         "font-size:28px;",
       "}",
       ".pb-title-col h2{",
-        "font-family:'Nunito',sans-serif;font-weight:900;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-weight:900;",
         "font-size:clamp(18px,4.5vw,22px);",
         "color:#111;margin:0 0 3px;line-height:1.2;",
       "}",
       ".pb-title-col p{",
-        "font-family:'Nunito',sans-serif;font-size:13px;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:13px;",
         "color:#888;margin:0;font-weight:600;",
       "}",
 
@@ -80,36 +78,36 @@
       "}",
       ".pb-gift-info{}",
       ".pb-gift-name{",
-        "font-family:'Nunito',sans-serif;font-weight:800;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-weight:800;",
         "font-size:14px;color:#111;display:block;margin-bottom:2px;",
       "}",
       ".pb-gift-desc{",
-        "font-family:'Nunito',sans-serif;font-size:12px;color:#888;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:12px;color:#888;",
       "}",
       ".pb-free{",
         "margin-left:auto;flex-shrink:0;",
         "background:#1db954;color:#fff;",
-        "font-family:'Nunito',sans-serif;font-size:11px;font-weight:800;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:11px;font-weight:800;",
         "padding:3px 9px;border-radius:20px;letter-spacing:.04em;",
       "}",
 
       /* форма */
       ".pb-label{",
-        "font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:13px;font-weight:700;",
         "color:#444;display:block;margin-bottom:6px;",
       "}",
       ".pb-phone{",
         "width:100%;box-sizing:border-box;",
         "border:2px solid #e0e0e0;border-radius:8px;",
         "padding:11px 14px;",
-        "font-family:'Nunito',sans-serif;font-size:15px;color:#111;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:15px;color:#111;",
         "outline:none;transition:border-color .2s;",
       "}",
       ".pb-phone::placeholder{color:#ccc;}",
       ".pb-phone:focus{border-color:#1db954;}",
 
       ".pb-msg-label{",
-        "font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:12px;font-weight:600;",
         "color:#aaa;margin:12px 0 7px;display:block;",
       "}",
       ".pb-messengers{display:flex;gap:7px;}",
@@ -118,7 +116,7 @@
         "flex:1;display:flex;align-items:center;justify-content:center;gap:5px;",
         "padding:9px 0;border-radius:7px;",
         "border:2px solid #ebebeb;background:#fafafa;",
-        "font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:12px;font-weight:700;",
         "color:#666;cursor:pointer;transition:all .18s;",
       "}",
       ".pb-m.tg:hover,.pb-m.tg.sel{background:#0088cc;border-color:#0088cc;color:#fff;}",
@@ -129,7 +127,7 @@
         "width:100%;margin-top:13px;",
         "background:#1db954;border:none;border-radius:8px;",
         "padding:13px;",
-        "font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:15px;font-weight:800;",
         "color:#fff;cursor:pointer;",
         "transition:background .18s,transform .15s;",
       "}",
@@ -137,7 +135,7 @@
       ".pb-btn:active{transform:translateY(0);}",
 
       ".pb-fine{",
-        "font-family:'Nunito',sans-serif;font-size:11px;",
+        "font-family:system-ui,'Segoe UI',sans-serif;font-size:11px;",
         "color:#ccc;text-align:center;margin-top:9px;",
       "}",
 
@@ -155,8 +153,8 @@
       /* success */
       ".pb-ok{text-align:center;padding:28px 16px;}",
       ".pb-ok-ico{font-size:46px;display:block;margin-bottom:10px;}",
-      ".pb-ok h3{font-family:'Nunito',sans-serif;font-weight:900;font-size:20px;color:#1db954;margin:0 0 6px;}",
-      ".pb-ok p{font-family:'Nunito',sans-serif;font-size:14px;color:#888;margin:0;}",
+      ".pb-ok h3{font-family:system-ui,'Segoe UI',sans-serif;font-weight:900;font-size:20px;color:#1db954;margin:0 0 6px;}",
+      ".pb-ok p{font-family:system-ui,'Segoe UI',sans-serif;font-size:14px;color:#888;margin:0;}",
     ].join("");
     document.head.appendChild(s);
   }

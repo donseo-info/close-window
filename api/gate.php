@@ -7,7 +7,6 @@
  */
 
 require_once dirname(__DIR__) . '/config.php';
-require_once RB_PATH;
 
 /* ── CORS: разрешаем запросы с любого домена ── */
 header('Access-Control-Allow-Origin: *');
@@ -16,6 +15,8 @@ header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
+
+db_ensure_init();
 
 /* ── Принимаем POST или GET (для Image-beacon fallback) ── */
 $raw = $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $_GET;
@@ -34,9 +35,6 @@ $referrer = g($raw, 'referrer');
 if (!in_array($variant, ['A', 'B', 'C'], true)) {
     echo json_encode(['ok' => false, 'error' => 'bad variant']); exit;
 }
-
-R::setup('sqlite:' . DB_PATH);
-R::freeze(true);
 
 /* ── action=open ── */
 if ($action === 'open') {

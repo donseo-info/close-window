@@ -1,9 +1,7 @@
 <?php
 require_once dirname(__DIR__) . '/config.php';
-require_once RB_PATH;
 
-R::setup('sqlite:' . DB_PATH);
-R::freeze(true);
+db_ensure_init();
 
 /* ── AJAX: сброс статистики ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'clear_stats') {

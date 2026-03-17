@@ -37,5 +37,10 @@ function db_ensure_init() {
         url          TEXT,
         created_at   TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )");
+    R::exec("CREATE TABLE IF NOT EXISTS popup_config (
+        variant    TEXT PRIMARY KEY,
+        config     TEXT NOT NULL DEFAULT '{}',
+        updated_at TEXT
+    )");
     R::freeze(true);
 }

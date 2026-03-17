@@ -3,6 +3,44 @@ require_once dirname(__DIR__) . '/config.php';
 
 db_ensure_init();
 
+/* ── POST: сохранить конфиг попапа и перегенерировать файлы ── */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_popup') {
+    require_once __DIR__ . '/generator.php';
+    $variant = strtoupper($_POST['variant'] ?? '');
+    if (in_array($variant, ['A','B','C'], true)) {
+        $defaults = popupDefaults($variant);
+        $c = [];
+        foreach ($defaults as $k => $def) {
+            if ($k === 'timer') {
+                $c[$k] = max(30, min(600, (int)($_POST[$k] ?? $def)));
+            } elseif ($k === 'headline') {
+                $c[$k] = strip_tags((string)($_POST[$k] ?? $def), '<br>');
+            } else {
+                $c[$k] = strip_tags((string)($_POST[$k] ?? $def));
+            }
+        }
+        R::freeze(false);
+        $bean = R::findOne('popup_config', 'variant = ?', [$variant]);
+        if (!$bean) $bean = R::dispense('popup_config');
+        $bean->variant   = $variant;
+        $bean->config    = json_encode($c, JSON_UNESCAPED_UNICODE);
+        $bean->updated_at = date('Y-m-d H:i:s');
+        R::store($bean);
+        R::freeze(true);
+        $err = buildAndSave($variant, $c);
+        R::close();
+        if ($err) {
+            header('Location: ?tab=popups&variant=' . $variant . '&err=' . urlencode($err));
+        } else {
+            header('Location: ?tab=popups&variant=' . $variant . '&saved=1');
+        }
+        exit;
+    }
+    R::close();
+    header('Location: ?tab=popups');
+    exit;
+}
+
 /* ── AJAX: сброс статистики ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'clear_stats') {
     header('Content-Type: application/json');
@@ -63,6 +101,17 @@ for ($i = 6; $i >= 0; $i--) {
 }
 
 /* ── Таблица лидов ── */
+/* ── Конфиги попапов (для вкладки редактора) ── */
+$popupConfigs = [];
+if ($tab === 'popups') {
+    require_once __DIR__ . '/generator.php';
+    foreach (['A','B','C'] as $pv) {
+        $bean = R::findOne('popup_config', 'variant = ?', [$pv]);
+        $saved = ($bean && $bean->config) ? json_decode($bean->config, true) : [];
+        $popupConfigs[$pv] = array_merge(popupDefaults($pv), $saved ?: []);
+    }
+}
+
 $leadRows  = [];
 $leadTotal = 0;
 $leadPages = 1;
@@ -222,6 +271,11 @@ function variantBadge($v) {
     <li class="nav-item">
       <a class="nav-link <?= activeTab('install',$tab) ?>" href="?tab=install">
         <i class="bi bi-code-slash"></i> Установка
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link <?= activeTab('popups',$tab) ?>" href="?tab=popups">
+        <i class="bi bi-pencil-square"></i> Попапы
       </a>
     </li>
   </ul>
@@ -649,6 +703,206 @@ function variantBadge($v) {
 
   </div><!-- /row -->
 
+<?php elseif ($tab === 'popups'): ?>
+
+  <?php
+    $activeVar = strtoupper($_GET['variant'] ?? 'A');
+    if (!in_array($activeVar, ['A','B','C'])) $activeVar = 'A';
+    $savedOk  = isset($_GET['saved']);
+    $savedErr = $_GET['err'] ?? '';
+  ?>
+
+  <?php if ($savedOk): ?>
+  <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+    <i class="bi bi-check-circle-fill me-2"></i>
+    Конфиг сохранён, файлы попапа перегенерированы.
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  <?php endif ?>
+  <?php if ($savedErr): ?>
+  <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <?= esc($savedErr) ?>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  <?php endif ?>
+
+  <!-- Заголовок -->
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <div>
+      <div style="font-size:16px;font-weight:700;color:#0f172a">Редактор попапов</div>
+      <div style="font-size:12px;color:#94a3b8">Изменения сразу записываются в .js и .min.js файлы</div>
+    </div>
+  </div>
+
+  <!-- Sub-tabs A / B / C -->
+  <ul class="nav nav-tabs mb-0" id="popupTabs" style="border-bottom:none">
+    <?php
+      $tabLabels = ['A'=>'Вариант A — Скидка','B'=>'Вариант B — Подарок','C'=>'Вариант C — Прогресс'];
+      $tabColors = ['A'=>'#e02020','B'=>'#1db954','C'=>'#2563eb'];
+    ?>
+    <?php foreach (['A','B','C'] as $pv): ?>
+    <li class="nav-item">
+      <button class="nav-link <?= $pv === $activeVar ? 'active' : '' ?>"
+              data-bs-toggle="tab" data-bs-target="#ptab<?= $pv ?>"
+              style="font-size:13px">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;
+                     background:<?= $tabColors[$pv] ?>;margin-right:6px"></span>
+        <?= $tabLabels[$pv] ?>
+      </button>
+    </li>
+    <?php endforeach ?>
+  </ul>
+
+  <div class="tab-content" style="background:#fff;border:1px solid #dbeafe;border-radius:0 8px 8px 8px;padding:24px">
+    <?php foreach (['A','B','C'] as $pv):
+      $cfg = $popupConfigs[$pv];
+    ?>
+    <div class="tab-pane fade <?= $pv === $activeVar ? 'show active' : '' ?>" id="ptab<?= $pv ?>">
+      <form method="post">
+        <input type="hidden" name="action"  value="save_popup">
+        <input type="hidden" name="variant" value="<?= $pv ?>">
+
+        <!-- Блок 1: Оформление -->
+        <div class="mb-4">
+          <div class="section-title mb-3">Оформление</div>
+          <div class="row g-3 align-items-end">
+
+            <div class="col-auto">
+              <label class="form-label fw-600" style="font-size:12px">Акцентный цвет</label>
+              <div class="d-flex align-items-center gap-2">
+                <input type="color" name="color" id="cp<?= $pv ?>"
+                       value="<?= esc($cfg['color']) ?>"
+                       style="width:44px;height:36px;padding:2px;border-radius:6px;border:1px solid #ddd;cursor:pointer">
+                <input type="text" id="ct<?= $pv ?>" value="<?= esc($cfg['color']) ?>"
+                       maxlength="7" style="width:88px;font-family:monospace;font-size:13px"
+                       class="form-control form-control-sm">
+              </div>
+            </div>
+
+            <?php if ($pv === 'A'): ?>
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-600" style="font-size:12px">Бейдж (над заголовком)</label>
+              <input type="text" class="form-control form-control-sm" name="badge"
+                     value="<?= esc($cfg['badge']) ?>">
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label fw-600" style="font-size:12px">Таймер (сек)</label>
+              <input type="number" class="form-control form-control-sm" name="timer"
+                     value="<?= (int)$cfg['timer'] ?>" min="30" max="600" step="30">
+            </div>
+            <?php elseif ($pv === 'C'): ?>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-600" style="font-size:12px">Подпись над заголовком</label>
+              <input type="text" class="form-control form-control-sm" name="label"
+                     value="<?= esc($cfg['label']) ?>">
+            </div>
+            <?php endif ?>
+
+          </div>
+        </div>
+
+        <!-- Блок 2: Тексты попапа -->
+        <div class="mb-4">
+          <div class="section-title mb-3">Тексты попапа</div>
+          <div class="row g-3">
+
+            <div class="col-12">
+              <label class="form-label fw-600" style="font-size:12px">
+                Заголовок
+                <span class="text-muted fw-normal">(допустим &lt;br&gt; для переноса строки)</span>
+              </label>
+              <textarea class="form-control form-control-sm" name="headline"
+                        rows="2"><?= esc($cfg['headline']) ?></textarea>
+            </div>
+
+            <?php if (isset($cfg['subtext'])): ?>
+            <div class="col-12">
+              <label class="form-label fw-600" style="font-size:12px">Подзаголовок / описание</label>
+              <input type="text" class="form-control form-control-sm" name="subtext"
+                     value="<?= esc($cfg['subtext']) ?>">
+            </div>
+            <?php endif ?>
+
+            <?php if ($pv === 'B'): ?>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-600" style="font-size:12px">Название подарка</label>
+              <input type="text" class="form-control form-control-sm" name="gift_name"
+                     value="<?= esc($cfg['gift_name']) ?>">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-600" style="font-size:12px">Описание подарка</label>
+              <input type="text" class="form-control form-control-sm" name="gift_desc"
+                     value="<?= esc($cfg['gift_desc']) ?>">
+            </div>
+            <?php endif ?>
+
+            <?php if ($pv === 'C'): ?>
+            <div class="col-12">
+              <label class="form-label fw-600 d-block" style="font-size:12px">
+                Чеклист
+                <span class="text-muted fw-normal">(✓ = выполнено · ○ = в процессе)</span>
+              </label>
+              <div class="row g-2">
+                <?php for ($ci = 1; $ci <= 5; $ci++): ?>
+                <div class="col-12 col-md-6">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text"
+                          style="width:36px;justify-content:center;font-size:13px">
+                      <?= $ci <= 4 ? '✓' : '○' ?>
+                    </span>
+                    <input type="text" class="form-control" name="check<?= $ci ?>"
+                           value="<?= esc($cfg['check'.$ci]) ?>">
+                  </div>
+                </div>
+                <?php endfor ?>
+              </div>
+            </div>
+            <?php endif ?>
+
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-600" style="font-size:12px">Текст кнопки</label>
+              <input type="text" class="form-control form-control-sm" name="btn"
+                     value="<?= esc($cfg['btn']) ?>">
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Блок 3: Экран успеха -->
+        <div class="mb-4">
+          <div class="section-title mb-3">Экран после отправки</div>
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-600" style="font-size:12px">Заголовок</label>
+              <input type="text" class="form-control form-control-sm" name="ok_title"
+                     value="<?= esc($cfg['ok_title']) ?>">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-600" style="font-size:12px">Текст</label>
+              <input type="text" class="form-control form-control-sm" name="ok_text"
+                     value="<?= esc($cfg['ok_text']) ?>">
+            </div>
+          </div>
+        </div>
+
+        <!-- Кнопка -->
+        <div class="d-flex align-items-center gap-3 pt-2" style="border-top:1px solid #f0f4f8">
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-lightning-fill me-1"></i>
+            Сохранить и сгенерировать попап <?= $pv ?>
+          </button>
+          <div style="font-size:11px;color:#94a3b8">
+            Перезапишет: <code>popup-<?= strtolower($pv) ?>.js</code>
+            и <code>popup-<?= strtolower($pv) ?>.min.js</code>
+          </div>
+        </div>
+
+      </form>
+    </div>
+    <?php endforeach ?>
+  </div>
+
 <?php endif ?>
 
 </div><!-- /container -->
@@ -681,6 +935,17 @@ document.querySelectorAll('.copy-btn').forEach(function(btn) {
       btn.classList.add('copied');
       setTimeout(function() { btn.innerHTML = orig; btn.classList.remove('copied'); }, 2000);
     });
+  });
+});
+
+/* Color picker ↔ text input sync */
+['A','B','C'].forEach(function(v) {
+  var cp = document.getElementById('cp' + v);
+  var ct = document.getElementById('ct' + v);
+  if (!cp || !ct) return;
+  cp.addEventListener('input', function() { ct.value = cp.value; });
+  ct.addEventListener('input', function() {
+    if (/^#[0-9a-fA-F]{6}$/.test(ct.value)) cp.value = ct.value;
   });
 });
 

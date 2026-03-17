@@ -66,37 +66,58 @@
   var _alreadyShown = false;
   try { _alreadyShown = !!sessionStorage.getItem(SS_KEY); } catch (e) {}
 
-  /* ── 3. Получение Яндекс ClientID (аналогично ct.js) ── */
-  function getYmClientId(cb) {
+  /* ── 3. Кэш YM ClientID — получаем заранее, не ждём при показе ── */
+  var _ymCache = null;   // строка или '' после резолва
+  var _ymReady = false;
+
+  function resolveYmClientId() {
     /* a) localStorage */
     try {
       var lsVal = localStorage.getItem('_ym_uid');
       if (lsVal) {
         var m = lsVal.replace(/"/g, '').match(/\d+/);
-        if (m) { cb(m[0]); return; }
+        if (m) { _ymCache = m[0]; _ymReady = true; return; }
       }
     } catch (e) {}
 
     /* b) cookie */
     var cm = document.cookie.match(/_ym_uid=(\d+)/);
-    if (cm) { cb(cm[1]); return; }
+    if (cm) { _ymCache = cm[1]; _ymReady = true; return; }
 
-    /* c) ym API с таймаутом 1.5с */
+    /* c) ym API — таймаут 800 мс (делаем заранее, не критично) */
     if (counterId && window.ym) {
       var done = false;
-      var t = setTimeout(function () { if (!done) { done = true; cb(''); } }, 1500);
+      var t = setTimeout(function () {
+        if (!done) { done = true; _ymCache = ''; _ymReady = true; }
+      }, 800);
       try {
         ym(counterId, 'getClientID', function (id) {
-          if (!done) { done = true; clearTimeout(t); cb(id || ''); }
+          if (!done) { done = true; clearTimeout(t); _ymCache = id || ''; _ymReady = true; }
         });
         return;
       } catch (e) {}
     }
 
-    cb('');
+    _ymCache = ''; _ymReady = true;
   }
 
-  /* ── 4. Динамическая загрузка скрипта попапа ── */
+  /* Запускаем разрешение YM сразу (не блокирует показ) */
+  resolveYmClientId();
+
+  function getYmClientId(cb) {
+    if (_ymReady) { cb(_ymCache); return; }
+    /* Если ещё не готово (редко) — ждём poll 50 мс */
+    var attempts = 0;
+    var poll = setInterval(function () {
+      attempts++;
+      if (_ymReady || attempts > 20) {
+        clearInterval(poll);
+        cb(_ymCache || '');
+      }
+    }, 50);
+  }
+
+  /* ── 4. Предзагрузка всех скриптов попапов сразу после загрузки страницы ── */
   function loadPopupScript(variant, cb) {
     var globalName = 'Popup' + variant;
     if (window[globalName]) { cb(window[globalName]); return; }
@@ -106,6 +127,19 @@
     s.onload  = function () { cb(window[globalName] || null); };
     s.onerror = function () { cb(null); };
     document.head.appendChild(s);
+  }
+
+  function preloadAll() {
+    VARIANTS.forEach(function (v) { loadPopupScript(v, function () {}); });
+  }
+
+  /* Грузим скрипты через 1.5 сек после DOMContentLoaded — не мешаем критическим ресурсам */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(preloadAll, 1500);
+    });
+  } else {
+    setTimeout(preloadAll, 1500);
   }
 
   /* ── 5. Отправка события на гейт ── */

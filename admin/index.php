@@ -15,6 +15,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'clear
 }
 
 $tab     = $_GET['tab']  ?? 'dashboard';
+
+/* ── URL проекта (автоопределение) ── */
+$proto   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host    = $_SERVER['HTTP_HOST'] ?? 'yourdomain.ru';
+// admin находится в /close-window/admin/, поднимаемся на уровень выше
+$adminDir = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/admin/index.php'), '/\\');
+$baseDir  = rtrim(dirname($adminDir), '/\\');
+$baseUrl  = $proto . '://' . $host . $baseDir;
+$scriptUrl = $baseUrl . '/popup.js';
+$gateUrl   = $baseUrl . '/api/gate.php';
 $page    = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 25;
 $offset  = ($page - 1) * $perPage;
@@ -176,6 +186,12 @@ function variantBadge($v) {
   .empty-state{text-align:center;padding:48px 16px;color:#94a3b8}
   .empty-state i{font-size:40px;display:block;margin-bottom:12px}
   .empty-state p{font-size:13px}
+
+  /* ── Блок кода установки ── */
+  .install-code{background:#0f172a;color:#e2e8f0;border-radius:8px;padding:16px;
+    font-size:12px;line-height:1.7;overflow-x:auto;white-space:pre;margin:0;
+    font-family:'Cascadia Code','Fira Code','Courier New',monospace}
+  .copy-btn.copied{background:#1db954;border-color:#1db954;color:#fff}
 </style>
 </head>
 <body>
@@ -203,6 +219,11 @@ function variantBadge($v) {
         <?php if ($totalLeadsAll > 0): ?>
           <span class="badge bg-primary ms-1" style="font-size:10px"><?= $totalLeadsAll ?></span>
         <?php endif ?>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link <?= activeTab('install',$tab) ?>" href="?tab=install">
+        <i class="bi bi-code-slash"></i> Установка
       </a>
     </li>
   </ul>
@@ -495,6 +516,141 @@ function variantBadge($v) {
 
   <?php endif ?>
 
+<?php elseif ($tab === 'install'): ?>
+
+  <!-- ── Вкладка: установка ── -->
+  <?php
+    $codeSimple = '<script src="' . $scriptUrl . '"' . "\n" .
+      '        data-gate="' . $gateUrl . '"' . "\n" .
+      '        data-counter="XXXXXXXX"></script>';
+
+    $codeAsync = '(function(w,d,s,u,g,c){' . "\n" .
+      '  w._EI={gate:g,counter:c};' . "\n" .
+      '  var el=d.createElement(s);el.async=1;el.src=u;' . "\n" .
+      '  d.head.appendChild(el);' . "\n" .
+      '})(window,document,\'script\',' . "\n" .
+      '  \'' . $scriptUrl . '\',' . "\n" .
+      '  \'' . $gateUrl . '\',' . "\n" .
+      '  \'XXXXXXXX\');';
+
+    $codeGtm = '<script>' . "\n" .
+      '(function(w,d,s,u,g,c){' . "\n" .
+      '  w._EI={gate:g,counter:c};' . "\n" .
+      '  var el=d.createElement(s);el.async=1;el.src=u;' . "\n" .
+      '  d.head.appendChild(el);' . "\n" .
+      '})(window,document,\'script\',' . "\n" .
+      '  \'' . $scriptUrl . '\',' . "\n" .
+      '  \'' . $gateUrl . '\',' . "\n" .
+      '  \'XXXXXXXX\');' . "\n" .
+      '</script>';
+  ?>
+
+  <div class="row g-3">
+
+    <!-- Инфо-блок -->
+    <div class="col-12">
+      <div class="chart-wrap" style="border-left:4px solid #3b82f6">
+        <div class="d-flex align-items-start gap-3">
+          <div style="font-size:24px;color:#3b82f6;line-height:1"><i class="bi bi-info-circle-fill"></i></div>
+          <div>
+            <div style="font-weight:600;margin-bottom:4px">Как подключить попап на сайт</div>
+            <div style="color:#64748b;font-size:12px;line-height:1.6">
+              Вставьте один из вариантов кода перед закрывающим тегом <code>&lt;/body&gt;</code>.
+              Замените <code>XXXXXXXX</code> на номер вашего счётчика Яндекс.Метрики.
+              Если счётчика нет — оставьте поле пустым или уберите параметр <code>data-counter</code>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Вариант 1: простой тег -->
+    <div class="col-12 col-lg-6">
+      <div class="chart-wrap h-100">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-title mb-0">Вариант 1 — простой</div>
+            <div style="font-size:11px;color:#94a3b8">Обычный тег &lt;script&gt;</div>
+          </div>
+          <button class="btn btn-sm btn-outline-primary copy-btn" data-target="code-simple">
+            <i class="bi bi-clipboard"></i> Копировать
+          </button>
+        </div>
+        <pre id="code-simple" class="install-code"><?= htmlspecialchars('<script src="' . $scriptUrl . '"' . "\n" . '        data-gate="' . $gateUrl . '"' . "\n" . '        data-counter="XXXXXXXX"></script>', ENT_QUOTES, 'UTF-8') ?></pre>
+      </div>
+    </div>
+
+    <!-- Вариант 2: асинхронный (рекомендуется) -->
+    <div class="col-12 col-lg-6">
+      <div class="chart-wrap h-100">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-title mb-0">Вариант 2 — асинхронный <span class="badge bg-success ms-1" style="font-size:10px;font-weight:600;text-transform:none;letter-spacing:0">рекомендуется</span></div>
+            <div style="font-size:11px;color:#94a3b8">Не блокирует загрузку страницы</div>
+          </div>
+          <button class="btn btn-sm btn-outline-primary copy-btn" data-target="code-async">
+            <i class="bi bi-clipboard"></i> Копировать
+          </button>
+        </div>
+        <pre id="code-async" class="install-code"><?= htmlspecialchars('<script>' . "\n" . $codeAsync . "\n" . '</script>', ENT_QUOTES, 'UTF-8') ?></pre>
+      </div>
+    </div>
+
+    <!-- Вариант 3: для GTM -->
+    <div class="col-12">
+      <div class="chart-wrap">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-title mb-0">Вариант 3 — через Google Tag Manager</div>
+            <div style="font-size:11px;color:#94a3b8">Custom HTML тег в GTM → All Pages триггер</div>
+          </div>
+          <button class="btn btn-sm btn-outline-primary copy-btn" data-target="code-gtm">
+            <i class="bi bi-clipboard"></i> Копировать
+          </button>
+        </div>
+        <pre id="code-gtm" class="install-code"><?= htmlspecialchars($codeGtm, ENT_QUOTES, 'UTF-8') ?></pre>
+
+        <div class="mt-3 p-3" style="background:#f8faff;border-radius:8px;font-size:12px;color:#475569">
+          <strong>Шаги в GTM:</strong>
+          <ol class="mb-0 mt-1" style="padding-left:18px;line-height:1.8">
+            <li>Теги → Создать → Custom HTML</li>
+            <li>Вставить код выше, заменить <code>XXXXXXXX</code></li>
+            <li>Триггер: All Pages</li>
+            <li>Сохранить и опубликовать</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- Текущие URL -->
+    <div class="col-12">
+      <div class="chart-wrap">
+        <div class="section-title mb-3">Адреса файлов (текущий сервер)</div>
+        <div class="row g-2">
+          <div class="col-12 col-md-6">
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Скрипт попапа</div>
+            <div class="d-flex align-items-center gap-2">
+              <code class="flex-grow-1 p-2" style="background:#f1f5f9;border-radius:6px;font-size:12px;display:block;word-break:break-all"><?= esc($scriptUrl) ?></code>
+              <button class="btn btn-sm btn-outline-secondary copy-btn flex-shrink-0" data-value="<?= esc($scriptUrl) ?>">
+                <i class="bi bi-clipboard"></i>
+              </button>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">API-эндпоинт (gate)</div>
+            <div class="d-flex align-items-center gap-2">
+              <code class="flex-grow-1 p-2" style="background:#f1f5f9;border-radius:6px;font-size:12px;display:block;word-break:break-all"><?= esc($gateUrl) ?></code>
+              <button class="btn btn-sm btn-outline-secondary copy-btn flex-shrink-0" data-value="<?= esc($gateUrl) ?>">
+                <i class="bi bi-clipboard"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row -->
+
 <?php endif ?>
 
 </div><!-- /container -->
@@ -510,6 +666,25 @@ setInterval(function(){
     String(d.getHours()).padStart(2,'0') + ':' +
     String(d.getMinutes()).padStart(2,'0');
 }, 30000);
+
+/* Копирование кода */
+document.querySelectorAll('.copy-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var text;
+    var targetId = btn.getAttribute('data-target');
+    if (targetId) {
+      text = document.getElementById(targetId).textContent;
+    } else {
+      text = btn.getAttribute('data-value');
+    }
+    navigator.clipboard.writeText(text).then(function() {
+      var orig = btn.innerHTML;
+      btn.innerHTML = '<i class="bi bi-check2"></i> Скопировано';
+      btn.classList.add('copied');
+      setTimeout(function() { btn.innerHTML = orig; btn.classList.remove('copied'); }, 2000);
+    });
+  });
+});
 
 /* Сброс статистики */
 var clearBtn = document.getElementById('btn-clear');

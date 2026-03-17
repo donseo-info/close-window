@@ -123,7 +123,7 @@
     if (window[globalName]) { cb(window[globalName]); return; }
 
     var s = document.createElement('script');
-    s.src = baseUrl + '/popups/popup-' + variant.toLowerCase() + '.js?v=2';
+    s.src = baseUrl + '/popups/popup-' + variant.toLowerCase() + '.min.js?v=2';
     s.onload  = function () { cb(window[globalName] || null); };
     s.onerror = function () { cb(null); };
     document.head.appendChild(s);

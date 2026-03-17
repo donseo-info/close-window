@@ -1,0 +1,528 @@
+<?php
+require_once dirname(__DIR__) . '/config.php';
+require_once RB_PATH;
+
+R::setup('sqlite:' . DB_PATH);
+R::freeze(true);
+
+/* ── AJAX: сброс статистики ── */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'clear_stats') {
+    header('Content-Type: application/json');
+    R::exec('DELETE FROM popup_opens');
+    R::exec('DELETE FROM popup_leads');
+    echo json_encode(['ok' => true]);
+    R::close(); exit;
+}
+
+$tab     = $_GET['tab']  ?? 'dashboard';
+$page    = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 25;
+$offset  = ($page - 1) * $perPage;
+$today   = date('Y-m-d');
+
+/* ── Общая статистика (только has_ym=1 учитывается в конверсии) ── */
+$totalOpens   = (int)R::getCell("SELECT COUNT(*) FROM popup_opens  WHERE has_ym=1");
+$totalLeads   = (int)R::getCell("SELECT COUNT(*) FROM popup_leads  WHERE has_ym=1");
+$totalLeadsAll= (int)R::getCell("SELECT COUNT(*) FROM popup_leads");
+$convRate     = $totalOpens > 0 ? round($totalLeads / $totalOpens * 100, 1) : 0;
+
+$opensToday   = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE has_ym=1 AND DATE(created_at)=?", [$today]);
+$leadsToday   = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE has_ym=1 AND DATE(created_at)=?", [$today]);
+
+/* ── По вариантам ── */
+$variantStats = [];
+foreach (['A', 'B', 'C'] as $v) {
+    $opens = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE variant=? AND has_ym=1", [$v]);
+    $leads = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE variant=? AND has_ym=1", [$v]);
+    $leadsNoYm = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE variant=? AND has_ym=0", [$v]);
+    $variantStats[$v] = [
+        'opens'      => $opens,
+        'leads'      => $leads,
+        'leads_noym' => $leadsNoYm,
+        'conv'       => $opens > 0 ? round($leads / $opens * 100, 1) : 0,
+    ];
+}
+
+/* ── График: открытия за 7 дней ── */
+$chartDays  = [];
+$chartOpens = [];
+$chartLeads = [];
+for ($i = 6; $i >= 0; $i--) {
+    $d = date('Y-m-d', strtotime("-{$i} days"));
+    $chartDays[]  = date('d.m', strtotime($d));
+    $chartOpens[] = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE DATE(created_at)=? AND has_ym=1", [$d]);
+    $chartLeads[] = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE DATE(created_at)=? AND has_ym=1", [$d]);
+}
+
+/* ── Таблица лидов ── */
+$leadRows  = [];
+$leadTotal = 0;
+$leadPages = 1;
+if ($tab === 'leads') {
+    $search = trim($_GET['search'] ?? '');
+    $vFilter = strtoupper(trim($_GET['variant'] ?? ''));
+    $where = []; $params = [];
+    if ($search) {
+        $where[]  = '(phone LIKE ? OR ym_client_id LIKE ?)';
+        $params[] = "%{$search}%";
+        $params[] = "%{$search}%";
+    }
+    if (in_array($vFilter, ['A','B','C'], true)) {
+        $where[]  = 'variant = ?';
+        $params[] = $vFilter;
+    }
+    $wsql      = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+    $leadTotal = (int)R::getCell("SELECT COUNT(*) FROM popup_leads {$wsql}", $params);
+    $leadPages = max(1, (int)ceil($leadTotal / $perPage));
+    $leadRows  = R::getAll(
+        "SELECT * FROM popup_leads {$wsql} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        array_merge($params, [$perPage, $offset])
+    );
+}
+
+R::close();
+
+/* ── Хелперы ── */
+function esc($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+function fmtPhone($p) {
+    $d = preg_replace('/\D/', '', $p ?? '');
+    if (strlen($d) === 11 && $d[0] === '7')
+        return '+7 ('.substr($d,1,3).') '.substr($d,4,3).'-'.substr($d,7,2).'-'.substr($d,9,2);
+    return $p ?: '—';
+}
+function messengerBadge($m) {
+    $map = ['tg'=>['Telegram','#0088cc'],'wa'=>['WhatsApp','#25d366'],'mx'=>['Max','#6c3fff']];
+    if (!$m || !isset($map[$m])) return '<span class="text-muted">—</span>';
+    [$label,$color] = $map[$m];
+    return "<span class='badge' style='background:{$color};font-size:11px'>{$label}</span>";
+}
+function activeTab($n,$c) { return $n===$c?'active':''; }
+function buildUrl($extra=[]) {
+    $p = array_merge($_GET, $extra); unset($p['page']);
+    return '?'.http_build_query(array_filter($p, fn($v)=>$v!==''));
+}
+function variantBadge($v) {
+    $c = ['A'=>'#e02020','B'=>'#1db954','C'=>'#2563eb'];
+    $col = $c[$v] ?? '#888';
+    return "<span class='badge' style='background:{$col};font-size:11px'>Вариант {$v}</span>";
+}
+?>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exit Intent · Админка</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+<style>
+  html,body{height:100%}
+  body{background:#f3f7fb;color:#0f172a;font-size:13px;font-family:'Segoe UI',system-ui,sans-serif}
+
+  /* ── Шапка ── */
+  .ct-header{background:#fff;border-bottom:1px solid #dbeafe;padding:0 24px;height:52px;
+    display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(15,23,42,.05)}
+  .ct-logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px;
+    color:#1d4ed8;letter-spacing:-.3px}
+  .ct-logo .dot{width:28px;height:28px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+    border-radius:8px;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:14px}
+  .ct-now{color:#94a3b8;font-size:11px}
+
+  /* ── Навигация ── */
+  .ct-nav{background:#fff;border-bottom:1px solid #dbeafe;padding:0 24px}
+  .ct-nav .nav-link{color:#64748b;font-size:13px;font-weight:500;padding:10px 14px;
+    border-bottom:2px solid transparent;border-radius:0;
+    display:flex;align-items:center;gap:6px;transition:color .15s,border-color .15s}
+  .ct-nav .nav-link:hover{color:#1d4ed8}
+  .ct-nav .nav-link.active{color:#1d4ed8;border-bottom-color:#1d4ed8;background:transparent}
+
+  /* ── Карточки дашборда ── */
+  .stat-card{background:#fff;border:1px solid #dbeafe;border-radius:12px;padding:20px 22px;
+    box-shadow:0 4px 12px rgba(15,23,42,.06);position:relative;overflow:hidden;transition:box-shadow .2s}
+  .stat-card:hover{box-shadow:0 6px 20px rgba(15,23,42,.1)}
+  .stat-card .stat-icon{position:absolute;top:16px;right:18px;width:36px;height:36px;
+    border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px}
+  .stat-card .stat-val{font-size:32px;font-weight:700;color:#0f172a;line-height:1;margin-bottom:4px}
+  .stat-card .stat-label{font-size:12px;color:#64748b;font-weight:500}
+  .stat-card .stat-sub{font-size:11px;color:#94a3b8;margin-top:4px}
+
+  /* ── Таблицы ── */
+  .ct-table{border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(15,23,42,.05)}
+  .ct-table thead th{background:#f8faff;color:#475569;font-weight:600;
+    border-bottom:2px solid #dbeafe;font-size:12px;padding:10px 14px;white-space:nowrap}
+  .ct-table tbody td{padding:9px 14px;vertical-align:middle;border-color:#f0f4f8}
+  .ct-table tbody tr:hover td{background:#f8faff}
+
+  /* ── Variant-бар в таблице ── */
+  .vbar{height:6px;border-radius:3px;background:#e5e7eb;overflow:hidden;min-width:60px}
+  .vbar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+
+  /* ── Chart ── */
+  .chart-wrap{background:#fff;border:1px solid #dbeafe;border-radius:12px;
+    padding:20px;box-shadow:0 4px 12px rgba(15,23,42,.06)}
+  .chart-canvas{position:relative;height:120px;display:flex;align-items:flex-end;gap:4px}
+  .chart-bar-group{flex:1;display:flex;gap:2px;align-items:flex-end;justify-content:center}
+  .chart-bar{border-radius:3px 3px 0 0;min-height:4px;transition:height .5s ease}
+  .chart-labels{display:flex;gap:4px;margin-top:6px}
+  .chart-label{flex:1;text-align:center;font-size:10px;color:#94a3b8}
+
+  /* ── Раздел ── */
+  .section-title{font-size:12px;font-weight:700;color:#94a3b8;
+    letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
+
+  /* ── Пустой стейт ── */
+  .empty-state{text-align:center;padding:48px 16px;color:#94a3b8}
+  .empty-state i{font-size:40px;display:block;margin-bottom:12px}
+  .empty-state p{font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- ── Шапка ── -->
+<header class="ct-header">
+  <div class="ct-logo">
+    <div class="dot"><i class="bi bi-cursor-fill" style="font-size:12px"></i></div>
+    Exit Intent · Статистика попапов
+  </div>
+  <div class="ct-now"><?= date('d.m.Y H:i') ?></div>
+</header>
+
+<!-- ── Навигация ── -->
+<nav class="ct-nav">
+  <ul class="nav">
+    <li class="nav-item">
+      <a class="nav-link <?= activeTab('dashboard',$tab) ?>" href="?tab=dashboard">
+        <i class="bi bi-grid-1x2"></i> Дашборд
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link <?= activeTab('leads',$tab) ?>" href="?tab=leads">
+        <i class="bi bi-person-lines-fill"></i> Заявки
+        <?php if ($totalLeadsAll > 0): ?>
+          <span class="badge bg-primary ms-1" style="font-size:10px"><?= $totalLeadsAll ?></span>
+        <?php endif ?>
+      </a>
+    </li>
+  </ul>
+</nav>
+
+<div class="container-fluid px-3 px-md-4 py-4" style="max-width:1200px">
+
+<?php if ($tab === 'dashboard'): ?>
+
+  <!-- ── Карточки ── -->
+  <div class="row g-3 mb-4">
+
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+          <i class="bi bi-eye"></i>
+        </div>
+        <div class="stat-val"><?= $totalOpens ?></div>
+        <div class="stat-label">Всего открытий</div>
+        <div class="stat-sub">Сегодня: <?= $opensToday ?></div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-icon bg-success bg-opacity-10 text-success">
+          <i class="bi bi-person-check"></i>
+        </div>
+        <div class="stat-val"><?= $totalLeads ?></div>
+        <div class="stat-label">Заявок (с Метрикой)</div>
+        <div class="stat-sub">Сегодня: <?= $leadsToday ?></div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+          <i class="bi bi-graph-up-arrow"></i>
+        </div>
+        <div class="stat-val"><?= $convRate ?>%</div>
+        <div class="stat-label">Конверсия</div>
+        <div class="stat-sub">открытия → заявки</div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(108,63,255,.1);color:#6c3fff">
+          <i class="bi bi-reception-4"></i>
+        </div>
+        <?php
+          $totalLeadsNoYm = array_sum(array_column($variantStats, 'leads_noym'));
+        ?>
+        <div class="stat-val"><?= $totalLeadsNoYm ?></div>
+        <div class="stat-label">Заявок без Метрики</div>
+        <div class="stat-sub">не в общей статистике</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+
+    <!-- ── График за 7 дней ── -->
+    <div class="col-12 col-md-8">
+      <div class="chart-wrap h-100">
+        <div class="section-title mb-3">Открытия и заявки — последние 7 дней</div>
+        <?php
+          $maxVal = max(array_merge($chartOpens, $chartLeads, [1]));
+        ?>
+        <div class="chart-canvas">
+          <?php for ($i = 0; $i < 7; $i++): ?>
+          <div class="chart-bar-group">
+            <div class="chart-bar"
+                 style="width:45%;background:#3b82f6;height:<?= round($chartOpens[$i]/$maxVal*100) ?>%"
+                 title="Открытия: <?= $chartOpens[$i] ?>"></div>
+            <div class="chart-bar"
+                 style="width:45%;background:#1db954;height:<?= round($chartLeads[$i]/$maxVal*100) ?>%"
+                 title="Заявки: <?= $chartLeads[$i] ?>"></div>
+          </div>
+          <?php endfor ?>
+        </div>
+        <div class="chart-labels">
+          <?php foreach ($chartDays as $dl): ?>
+          <div class="chart-label"><?= $dl ?></div>
+          <?php endforeach ?>
+        </div>
+        <div class="d-flex gap-3 mt-3">
+          <span style="font-size:11px;color:#64748b">
+            <span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:2px;margin-right:4px"></span>Открытия
+          </span>
+          <span style="font-size:11px;color:#64748b">
+            <span style="display:inline-block;width:10px;height:10px;background:#1db954;border-radius:2px;margin-right:4px"></span>Заявки
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Сравнение вариантов ── -->
+    <div class="col-12 col-md-4">
+      <div class="chart-wrap h-100">
+        <div class="section-title mb-3">A/B сравнение</div>
+        <?php
+          $maxOpens = max(array_column($variantStats, 'opens') ?: [1]);
+        ?>
+        <?php foreach ($variantStats as $v => $vs):
+          $colors = ['A'=>'#e02020','B'=>'#1db954','C'=>'#2563eb'];
+          $col = $colors[$v] ?? '#888';
+          $barW = $maxOpens > 0 ? round($vs['opens']/$maxOpens*100) : 0;
+        ?>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fw-600" style="font-size:12px">
+              <?= variantBadge($v) ?>
+            </span>
+            <span style="font-size:11px;color:#475569">
+              <?= $vs['opens'] ?> → <?= $vs['leads'] ?>
+              <span style="color:<?= $col ?>;font-weight:700"> (<?= $vs['conv'] ?>%)</span>
+            </span>
+          </div>
+          <div class="vbar">
+            <div class="vbar-fill" style="width:<?= $barW ?>%;background:<?= $col ?>"></div>
+          </div>
+        </div>
+        <?php endforeach ?>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Детальная таблица по вариантам ── -->
+  <div class="section-title">Детальная статистика по вариантам</div>
+  <div class="card border-0 ct-table mb-4">
+    <table class="table table-hover mb-0 ct-table">
+      <thead>
+        <tr>
+          <th>Вариант</th>
+          <th>Открытий<br><small class="text-muted fw-normal">(с Метрикой)</small></th>
+          <th>Заявок<br><small class="text-muted fw-normal">(с Метрикой)</small></th>
+          <th>Заявок<br><small class="text-muted fw-normal">(без Метрики)</small></th>
+          <th>Конверсия</th>
+          <th>Вес в открытиях</th>
+        </tr>
+      </thead>
+      <tbody>
+      <?php foreach ($variantStats as $v => $vs):
+        $colors = ['A'=>'#e02020','B'=>'#1db954','C'=>'#2563eb'];
+        $col = $colors[$v];
+        $barW = $totalOpens > 0 ? round($vs['opens']/$totalOpens*100) : 0;
+        $labels = ['A'=>'Скидка −10% + таймер','B'=>'Бесплатный гайд','C'=>'Прогресс + 1 шаг'];
+      ?>
+      <tr>
+        <td>
+          <?= variantBadge($v) ?>
+          <div style="font-size:11px;color:#94a3b8;margin-top:2px"><?= esc($labels[$v]) ?></div>
+        </td>
+        <td class="fw-600"><?= $vs['opens'] ?></td>
+        <td class="fw-600" style="color:#1db954"><?= $vs['leads'] ?></td>
+        <td style="color:#94a3b8"><?= $vs['leads_noym'] ?></td>
+        <td>
+          <span style="font-weight:700;color:<?= $col ?>"><?= $vs['conv'] ?>%</span>
+        </td>
+        <td style="min-width:120px">
+          <div class="d-flex align-items-center gap-2">
+            <div class="vbar flex-grow-1">
+              <div class="vbar-fill" style="width:<?= $barW ?>%;background:<?= $col ?>"></div>
+            </div>
+            <span style="font-size:11px;color:#94a3b8;width:30px"><?= $barW ?>%</span>
+          </div>
+        </td>
+      </tr>
+      <?php endforeach ?>
+      </tbody>
+      <tfoot>
+        <tr style="background:#f8faff">
+          <td class="fw-600">Итого</td>
+          <td class="fw-600"><?= $totalOpens ?></td>
+          <td class="fw-600" style="color:#1db954"><?= $totalLeads ?></td>
+          <td style="color:#94a3b8"><?= $totalLeadsNoYm ?></td>
+          <td><span style="font-weight:700;color:#1d4ed8"><?= $convRate ?>%</span></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- ── Сброс ── -->
+  <div class="text-end">
+    <button class="btn btn-sm btn-outline-danger" id="btn-clear">
+      <i class="bi bi-trash3"></i> Сбросить всю статистику
+    </button>
+  </div>
+
+<?php elseif ($tab === 'leads'): ?>
+
+  <!-- ── Вкладка: заявки ── -->
+  <?php
+    $search  = trim($_GET['search'] ?? '');
+    $vFilter = strtoupper(trim($_GET['variant'] ?? ''));
+  ?>
+  <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <form method="get" class="d-flex gap-2 flex-wrap" style="flex:1">
+      <input type="hidden" name="tab" value="leads">
+      <input class="form-control form-control-sm" style="max-width:200px"
+             name="search" value="<?= esc($search) ?>" placeholder="Телефон / ClientID…">
+      <select class="form-select form-select-sm" style="max-width:160px" name="variant">
+        <option value="">Все варианты</option>
+        <option value="A" <?= $vFilter==='A'?'selected':'' ?>>Вариант A</option>
+        <option value="B" <?= $vFilter==='B'?'selected':'' ?>>Вариант B</option>
+        <option value="C" <?= $vFilter==='C'?'selected':'' ?>>Вариант C</option>
+      </select>
+      <button class="btn btn-primary btn-sm" type="submit">
+        <i class="bi bi-search"></i> Найти
+      </button>
+      <?php if ($search || $vFilter): ?>
+        <a href="?tab=leads" class="btn btn-outline-secondary btn-sm">Сброс</a>
+      <?php endif ?>
+    </form>
+    <div style="font-size:12px;color:#94a3b8">
+      Найдено: <?= $leadTotal ?>
+    </div>
+  </div>
+
+  <?php if (empty($leadRows)): ?>
+    <div class="empty-state">
+      <i class="bi bi-inbox"></i>
+      <p>Заявок пока нет.</p>
+    </div>
+  <?php else: ?>
+  <div class="card border-0 ct-table mb-3">
+    <table class="table table-hover mb-0 ct-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Дата</th>
+          <th>Вариант</th>
+          <th>Телефон</th>
+          <th>Мессенджер</th>
+          <th>Яндекс ClientID</th>
+          <th>Метрика</th>
+          <th>URL</th>
+        </tr>
+      </thead>
+      <tbody>
+      <?php foreach ($leadRows as $r): ?>
+      <tr>
+        <td style="color:#94a3b8"><?= esc($r['id']) ?></td>
+        <td style="white-space:nowrap"><?= esc($r['created_at']) ?></td>
+        <td><?= variantBadge($r['variant']) ?></td>
+        <td class="fw-600" style="white-space:nowrap"><?= fmtPhone($r['phone']) ?></td>
+        <td><?= messengerBadge($r['messenger']) ?></td>
+        <td>
+          <?php if ($r['ym_client_id']): ?>
+            <code style="font-size:11px"><?= esc($r['ym_client_id']) ?></code>
+          <?php else: ?>
+            <span class="text-muted">—</span>
+          <?php endif ?>
+        </td>
+        <td>
+          <?php if ($r['has_ym']): ?>
+            <span class="badge bg-success" style="font-size:10px">✓ есть</span>
+          <?php else: ?>
+            <span class="badge bg-secondary" style="font-size:10px">нет</span>
+          <?php endif ?>
+        </td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          <?php if ($r['url']): ?>
+            <a href="<?= esc($r['url']) ?>" target="_blank" title="<?= esc($r['url']) ?>"
+               style="font-size:11px;color:#2563eb">
+              <?= esc(parse_url($r['url'], PHP_URL_HOST) ?: $r['url']) ?>
+            </a>
+          <?php else: ?>—<?php endif ?>
+        </td>
+      </tr>
+      <?php endforeach ?>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Пагинация ── -->
+  <?php if ($leadPages > 1): ?>
+  <nav>
+    <ul class="pagination pagination-sm justify-content-center">
+      <?php for ($p = 1; $p <= $leadPages; $p++): ?>
+      <li class="page-item <?= $p===$page?'active':'' ?>">
+        <a class="page-link" href="<?= buildUrl(['tab'=>'leads','page'=>$p]) ?>"><?= $p ?></a>
+      </li>
+      <?php endfor ?>
+    </ul>
+  </nav>
+  <?php endif ?>
+
+  <?php endif ?>
+
+<?php endif ?>
+
+</div><!-- /container -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* Обновлять время в шапке */
+setInterval(function(){
+  var el = document.querySelector('.ct-now');
+  if (!el) return;
+  var d = new Date();
+  el.textContent = d.toLocaleDateString('ru-RU') + ' ' +
+    String(d.getHours()).padStart(2,'0') + ':' +
+    String(d.getMinutes()).padStart(2,'0');
+}, 30000);
+
+/* Сброс статистики */
+var clearBtn = document.getElementById('btn-clear');
+if (clearBtn) {
+  clearBtn.addEventListener('click', function() {
+    if (!confirm('Сбросить всю статистику? Действие необратимо.')) return;
+    var fd = new FormData();
+    fd.append('action', 'clear_stats');
+    fetch('', {method:'POST', body: fd})
+      .then(function(r){ return r.json(); })
+      .then(function(){ location.reload(); });
+  });
+}
+</script>
+</body>
+</html>

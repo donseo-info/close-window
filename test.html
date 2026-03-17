@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Exit Intent — тест подключения</title>
+
+  <!--
+    ════════════════════════════════════════════════════════
+    КАК ПОДКЛЮЧИТЬ НА ЛЮБОЙ САЙТ (только этот блок):
+
+    Вариант A — прямой тег:
+    ─────────────────────────────────────────────────────
+    <script src="https://ВАШ-ДОМЕН/close-window/popup.js"
+            data-gate="https://ВАШ-ДОМЕН/close-window/api/gate.php"
+            data-counter="ИДЕНТИФИКАТОР_СЧЁТЧИКА_ЯМ">
+    </script>
+
+    Вариант B — асинхронный лоадер (рекомендуется):
+    ─────────────────────────────────────────────────────
+    <script>
+    (function(w,d,s,u,g,c){
+      w._EI={gate:g,counter:c};
+      var el=d.createElement(s);el.async=1;el.src=u;
+      d.head.appendChild(el);
+    })(window,document,'script',
+      'https://ВАШ-ДОМЕН/close-window/popup.js',
+      'https://ВАШ-ДОМЕН/close-window/api/gate.php',
+      'ИДЕНТИФИКАТОР_СЧЁТЧИКА_ЯМ');
+    </script>
+    ════════════════════════════════════════════════════════
+  -->
+
+  <!-- Яндекс.Метрика -->
+  <script>
+    (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+    m[i].l=1*new Date();
+    for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}
+    k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+    (window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
+    ym(107404488,"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true});
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f6fa; color: #1a1a2e; min-height: 100vh;
+      padding: 40px 16px 60px;
+    }
+    .page { max-width: 720px; margin: 0 auto; }
+
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .sub { font-size: 14px; color: #666; margin-bottom: 20px; line-height: 1.6; }
+    code { background: #eee; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+
+    .hint {
+      background: #fff8e1; border: 1px solid #ffe082;
+      border-radius: 8px; padding: 12px 16px;
+      font-size: 13px; color: #5d4037; margin-bottom: 28px;
+    }
+
+    .section-title {
+      font-size: 12px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: #999; margin-bottom: 12px;
+    }
+
+    .grid {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 12px; margin-bottom: 20px;
+    }
+    @media(max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff; border: 1px solid #e8e8e8;
+      border-radius: 10px; padding: 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .card-top { display: flex; align-items: center; gap: 10px; }
+    .badge {
+      width: 28px; height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800; color: #fff; flex-shrink: 0;
+    }
+    .ba { background: #e02020; }
+    .bb { background: #1db954; }
+    .bc { background: #2563eb; }
+    .card-name { font-size: 13px; font-weight: 700; }
+    .card-sub  { font-size: 11px; color: #999; margin-top: 1px; }
+    .card-descr { font-size: 12px; color: #777; line-height: 1.5; flex: 1; }
+
+    .btn {
+      width: 100%; border: none; border-radius: 7px;
+      padding: 9px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: filter .15s, transform .12s;
+      color: #fff;
+    }
+    .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .ba-btn { background: #e02020; }
+    .bb-btn { background: #1db954; }
+    .bc-btn { background: #2563eb; }
+
+    .random-btn {
+      width: 100%; background: #fff; border: 1.5px dashed #ccc;
+      border-radius: 8px; padding: 11px;
+      font-size: 13px; font-weight: 600; color: #555;
+      cursor: pointer; transition: all .15s; margin-bottom: 8px;
+    }
+    .random-btn:hover { border-color: #999; color: #111; background: #fafafa; }
+
+    .reset-link {
+      display: block; text-align: center; font-size: 11px;
+      color: #bbb; cursor: pointer; margin-bottom: 24px;
+      text-decoration: underline;
+    }
+    .reset-link:hover { color: #e02020; }
+
+    .last-shown {
+      text-align: center; font-size: 12px; color: #aaa; min-height: 18px;
+      margin-bottom: 4px;
+    }
+
+    .log-box {
+      background: #1a1a2e; border-radius: 10px; overflow: hidden;
+      margin-top: 8px;
+    }
+    .log-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 16px;
+      font-size: 12px; font-weight: 600; color: #888;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .log-clear {
+      background: none; border: 1px solid rgba(255,255,255,.1);
+      border-radius: 4px; padding: 2px 8px;
+      font-size: 11px; color: #555; cursor: pointer;
+      transition: color .15s;
+    }
+    .log-clear:hover { color: #ef4444; }
+    .log-body { padding: 12px 16px; min-height: 60px; max-height: 200px; overflow-y: auto; }
+    .log-empty { font-size: 12px; color: #444; font-style: italic; }
+    .log-entry {
+      font-family: monospace; font-size: 12px; color: #4ade80;
+      margin-bottom: 4px; line-height: 1.5;
+    }
+    .log-entry::before { content: "▶ "; color: #555; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Exit Intent · Тестовая страница</h1>
+  <p class="sub">
+    Скрипт подключён через <code>popup.js</code>. Уведите курсор за верхний
+    край экрана или используйте кнопки ниже.
+  </p>
+
+  <div class="hint">
+    🖱️ <strong>Триггер:</strong> курсор уходит за верхний край окна → случайный вариант.
+    Показывается <strong>1 раз на сессию</strong>. Данные уходят на <code>gate.php</code>.
+  </div>
+
+  <div class="section-title">Ручное тестирование вариантов</div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-top">
+        <div class="badge ba">A</div>
+        <div>
+          <div class="card-name">FOMO + скидка</div>
+          <div class="card-sub">Красный · таймер 3 мин</div>
+        </div>
+      </div>
+      <div class="card-descr">«Уже уходите? Скидка −10%!» + обратный отсчёт</div>
+      <button class="btn ba-btn" onclick="EI&&EI.show('A')">Показать A</button>
+    </div>
+    <div class="card">
+      <div class="card-top">
+        <div class="badge bb">B</div>
+        <div>
+          <div class="card-name">Подарок</div>
+          <div class="card-sub">Зелёный · PDF-гайд</div>
+        </div>
+      </div>
+      <div class="card-descr">«Не уходите с пустыми руками» + гайд за контакт</div>
+      <button class="btn bb-btn" onclick="EI&&EI.show('B')">Показать B</button>
+    </div>
+    <div class="card">
+      <div class="card-top">
+        <div class="badge bc">C</div>
+        <div>
+          <div class="card-name">Зейгарник</div>
+          <div class="card-sub">Синий · прогресс 80%</div>
+        </div>
+      </div>
+      <div class="card-descr">«Остался 1 шаг» + прогресс-бар + чеклист</div>
+      <button class="btn bc-btn" onclick="EI&&EI.show('C')">Показать C</button>
+    </div>
+  </div>
+
+  <button class="random-btn" onclick="EI&&EI.show()">🎲 Случайный вариант (как при реальном exit-intent)</button>
+  <div class="last-shown" id="last-shown"></div>
+  <span class="reset-link" onclick="EI&&EI.reset();document.getElementById('last-shown').textContent='Сессия сброшена'">
+    сбросить сессию (чтобы триггер сработал снова)
+  </span>
+
+  <div class="section-title">Лог событий</div>
+  <div class="log-box">
+    <div class="log-head">
+      📋 onSubmit коллбэк — данные формы
+      <button class="log-clear" onclick="document.getElementById('log-body').innerHTML='<div class=\'log-empty\'>Событий пока нет…</div>'">очистить</button>
+    </div>
+    <div class="log-body" id="log-body">
+      <div class="log-empty">Событий пока нет…</div>
+    </div>
+  </div>
+
+</div>
+
+<!--
+  Подключаем popup.js. На реальном сайте — только этот блок!
+-->
+<script>
+(function(w,d,s,u,g,c){
+  w._EI={gate:g,counter:c};
+  var el=d.createElement(s);el.async=1;el.src=u;
+  d.head.appendChild(el);
+})(window,document,'script',
+  'http://close-window.loc/popup.js',
+  'http://close-window.loc/api/gate.php',
+  '107404488');
+</script>
+
+<!-- Лог: перехватываем onSubmit после загрузки popup.js -->
+<script>
+(function poll() {
+  if (!window.EI) { setTimeout(poll, 100); return; }
+
+  /* Патчим onSubmit каждого попапа через EI.show — вешаем глобальный лог */
+  var orig = EI.show;
+  EI.show = function(variant) {
+    orig.call(EI, variant);
+    /* Даём 200мс загрузиться попапу, потом вешаем коллбэк */
+    setTimeout(function() {
+      var v = variant ? variant.toUpperCase() : '?';
+      var names = ['A','B','C'];
+      names.forEach(function(n) {
+        var p = window['Popup' + n];
+        if (!p || p._logPatched) return;
+        p._logPatched = true;
+        var origSub = p.onSubmit.bind(p);
+        p.onSubmit = function(cb) {
+          origSub(function(data) {
+            logEvent(data);
+            if (cb) cb(data);
+          });
+        };
+      });
+      document.getElementById('last-shown').textContent =
+        'Показан вариант: ' + (variant || 'случайный');
+    }, 200);
+  };
+})();
+
+function logEvent(data) {
+  var body = document.getElementById('log-body');
+  var empty = body.querySelector('.log-empty');
+  if (empty) empty.remove();
+  var d = document.createElement('div');
+  d.className = 'log-entry';
+  d.textContent = JSON.stringify(data);
+  body.insertBefore(d, body.firstChild);
+}
+</script>
+</body>
+</html>

@@ -129,17 +129,17 @@
     document.head.appendChild(s);
   }
 
-  function preloadAll() {
-    VARIANTS.forEach(function (v) { loadPopupScript(v, function () {}); });
+  function preloadChosen() {
+    loadPopupScript(_chosenVariant, function () {});
   }
 
-  /* Грузим скрипты через 1.5 сек после DOMContentLoaded — не мешаем критическим ресурсам */
+  /* Грузим только выбранный вариант через 1.5 сек после DOMContentLoaded */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
-      setTimeout(preloadAll, 1500);
+      setTimeout(preloadChosen, 1500);
     });
   } else {
-    setTimeout(preloadAll, 1500);
+    setTimeout(preloadChosen, 1500);
   }
 
   /* ── 5. Отправка события на гейт ── */
@@ -163,6 +163,9 @@
 
   /* ── 6. Основная логика показа ── */
   var VARIANTS = ['A', 'B', 'C'];
+
+  /* Вариант выбирается один раз при загрузке страницы и запоминается */
+  var _chosenVariant = VARIANTS[Math.floor(Math.random() * VARIANTS.length)];
 
   function showVariant(variant, skipSession) {
     /* Блокируем повторный показ в этой сессии (если не ручной вызов) */
@@ -203,8 +206,7 @@
   }
 
   function triggerRandom() {
-    var v = VARIANTS[Math.floor(Math.random() * VARIANTS.length)];
-    showVariant(v, false);
+    showVariant(_chosenVariant, false);
   }
 
   /* ── 7. Exit-intent триггер: курсор уходит за верхний край ── */

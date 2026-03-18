@@ -123,20 +123,20 @@ function generatePopupA(array $c): string {
 
     $dom = '<div id="pa-box">'
          . '<div class="pa-head">'
-         . '<button class="pa-close" id="pa-x">\u2715</button>'
+         . '<button class="pa-close" id="pa-x">✕</button>'
          . '<div class="pa-badge">' . $c['badge'] . '</div>'
          . '<h2>' . $c['headline'] . '</h2>'
          . '<p>' . $c['subtext'] . '</p>'
          . '<div class="pa-timer">'
-         . '<div class="pa-t-block"><span class="pa-t-num" id="pa-min">03</span><span class="pa-t-lbl">\u043c\u0438\u043d</span></div>'
+         . '<div class="pa-t-block"><span class="pa-t-num" id="pa-min">03</span><span class="pa-t-lbl">мин</span></div>'
          . '<span class="pa-t-sep">:</span>'
-         . '<div class="pa-t-block"><span class="pa-t-num" id="pa-sec">00</span><span class="pa-t-lbl">\u0441\u0435\u043a</span></div>'
+         . '<div class="pa-t-block"><span class="pa-t-num" id="pa-sec">00</span><span class="pa-t-lbl">сек</span></div>'
          . '</div></div>'
          . '<div class="pa-body"><div id="pa-form-area">'
-         . '<label class="pa-phone-label">\u0412\u0430\u0448 \u043d\u043e\u043c\u0435\u0440 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0430</label>'
+         . '<label class="pa-phone-label">Ваш номер телефона</label>'
          . '<form id="pa-form" novalidate>'
          . '<input class="pa-phone" type="tel" id="pa-tel" placeholder="+7 (___) ___-__-__" autocomplete="tel"/>'
-         . '<span class="pa-msg-label">\u041a\u0443\u0434\u0430 \u0443\u0434\u043e\u0431\u043d\u043e \u043d\u0430\u043f\u0438\u0441\u0430\u0442\u044c?</span>'
+         . '<span class="pa-msg-label">Куда удобно написать?</span>'
          . '<div class="pa-messengers">'
          . '<button type="button" class="pa-m-btn tg" data-m="tg">' . svgTg() . 'Telegram</button>'
          . '<button type="button" class="pa-m-btn wa" data-m="wa">' . svgWa() . 'WhatsApp</button>'
@@ -144,11 +144,11 @@ function generatePopupA(array $c): string {
          . '</div>'
          . '<button class="pa-submit" type="submit">' . $c['btn'] . '</button>'
          . '</form>'
-         . '<p class="pa-agree">\u041d\u0430\u0436\u0438\u043c\u0430\u044f \u043a\u043d\u043e\u043f\u043a\u0443, \u0432\u044b \u0441\u043e\u0433\u043b\u0430\u0448\u0430\u0435\u0442\u0435\u0441\u044c \u0441 \u043f\u043e\u043b\u0438\u0442\u0438\u043a\u043e\u0439 \u043a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u0438</p>'
+         . '<p class="pa-agree">Нажимая кнопку, вы соглашаетесь с политикой конфиденциальности</p>'
          . '</div></div></div>';
 
     $ok = '<div class="pa-success">'
-        . '<span class="pa-success-ico">\ud83c\udf89</span>'
+        . '<span class="pa-success-ico">🎉</span>'
         . '<h3>' . $c['ok_title'] . '</h3>'
         . '<p>' . $c['ok_text'] . '</p>'
         . '</div>';
@@ -242,14 +242,14 @@ function generatePopupB(array $c): string {
 
     $dom = '<div id="pb-box">'
          . '<div class="pb-ribbon"></div>'
-         . '<button class="pb-close" id="pb-x">\u2715</button>'
+         . '<button class="pb-close" id="pb-x">✕</button>'
          . '<div class="pb-inner">'
          . '<div class="pb-icon-row">'
-         . '<div class="pb-icon-wrap">\ud83c\udf81</div>'
+         . '<div class="pb-icon-wrap">🎁</div>'
          . '<div class="pb-title-col"><h2>' . $c['headline'] . '</h2><p>' . $c['subtext'] . '</p></div>'
          . '</div>'
          . '<div class="pb-gift-card">'
-         . '<div class="pb-gift-thumb">\ud83d\udcd6</div>'
+         . '<div class="pb-gift-thumb">📖</div>'
          . '<div class="pb-gift-info">'
          . '<span class="pb-gift-name">' . $c['gift_name'] . '</span>'
          . '<span class="pb-gift-desc">' . $c['gift_desc'] . '</span>'
@@ -258,9 +258,9 @@ function generatePopupB(array $c): string {
          . '</div>'
          . '<div id="pb-form-area">'
          . '<form id="pb-form" novalidate>'
-         . '<label class="pb-label">\u0412\u0430\u0448 \u043d\u043e\u043c\u0435\u0440 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0430</label>'
+         . '<label class="pb-label">Ваш номер телефона</label>'
          . '<input class="pb-phone" type="tel" id="pb-tel" placeholder="+7 (___) ___-__-__" autocomplete="tel"/>'
-         . '<span class="pb-msg-label">\u041a\u0443\u0434\u0430 \u043f\u0440\u0438\u0441\u043b\u0430\u0442\u044c?</span>'
+         . '<span class="pb-msg-label">Куда прислать?</span>'
          . '<div class="pb-messengers">'
          . '<button type="button" class="pb-m tg" data-m="tg">' . svgTg(14) . 'Telegram</button>'
          . '<button type="button" class="pb-m wa" data-m="wa">' . svgWa(14) . 'WhatsApp</button>'
@@ -268,11 +268,11 @@ function generatePopupB(array $c): string {
          . '</div>'
          . '<button class="pb-btn" type="submit">' . $c['btn'] . '</button>'
          . '</form>'
-         . '<p class="pb-fine">\ud83d\udd12 \u0411\u0435\u0437 \u0441\u043f\u0430\u043c\u0430. \u041e\u0442\u043f\u0438\u0441\u0430\u0442\u044c\u0441\u044f \u0432 \u043e\u0434\u0438\u043d \u043a\u043b\u0438\u043a.</p>'
+         . '<p class="pb-fine">🔒 Без спама. Отписаться в один клик.</p>'
          . '</div></div></div>';
 
     $ok = '<div class="pb-ok">'
-        . '<span class="pb-ok-ico">\ud83d\udce4</span>'
+        . '<span class="pb-ok-ico">📤</span>'
         . '<h3>' . $c['ok_title'] . '</h3>'
         . '<p>' . $c['ok_text'] . '</p>'
         . '</div>';
@@ -323,10 +323,10 @@ function generatePopupC(array $c): string {
 
     $checks_done = [];
     for ($i = 1; $i <= 4; $i++) {
-        $checks_done[] = '<li class="done"><span class="pc-chk done">\u2713</span>' . $c['check'.$i] . '</li>';
+        $checks_done[] = '<li class="done"><span class="pc-chk done">✓</span>' . $c['check'.$i] . '</li>';
     }
     $checksDoneHtml = implode('', $checks_done);
-    $checkPendHtml  = '<li><span class="pc-chk pend">\u25cb</span>' . $c['check5'] . '</li>';
+    $checkPendHtml  = '<li><span class="pc-chk pend">○</span>' . $c['check5'] . '</li>';
 
     $css = "#pc-overlay{position:fixed;inset:0;z-index:99999;background:rgba(10,20,40,.55);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;opacity:0;transition:opacity .25s}"
          . "#pc-overlay.pc-on{opacity:1}"
@@ -375,10 +375,10 @@ function generatePopupC(array $c): string {
 
     $dom = '<div id="pc-box">'
          . '<div class="pc-head">'
-         . '<button class="pc-close" id="pc-x">\u2715</button>'
+         . '<button class="pc-close" id="pc-x">✕</button>'
          . '<span class="pc-head-label">' . $c['label'] . '</span>'
          . '<h2>' . $c['headline'] . '</h2>'
-         . '<div class="pc-progress-row"><span>\u0412\u0430\u0448 \u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441</span><span class="pc-pct">80%</span></div>'
+         . '<div class="pc-progress-row"><span>Ваш прогресс</span><span class="pc-pct">80%</span></div>'
          . '<div class="pc-track"><div class="pc-fill" id="pc-fill"></div></div>'
          . '<div class="pc-steps-row">'
          . '<div class="pc-step done"></div><div class="pc-step done"></div>'
@@ -389,9 +389,9 @@ function generatePopupC(array $c): string {
          . '<ul class="pc-list">' . $checksDoneHtml . $checkPendHtml . '</ul>'
          . '<div id="pc-form-area">'
          . '<form id="pc-form" novalidate>'
-         . '<label class="pc-label">\u041d\u043e\u043c\u0435\u0440 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0430</label>'
+         . '<label class="pc-label">Номер телефона</label>'
          . '<input class="pc-phone" type="tel" id="pc-tel" placeholder="+7 (___) ___-__-__" autocomplete="tel"/>'
-         . '<span class="pc-msg-label">\u041f\u0440\u0435\u0434\u043f\u043e\u0447\u0442\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u043c\u0435\u0441\u0441\u0435\u043d\u0434\u0436\u0435\u0440</span>'
+         . '<span class="pc-msg-label">Предпочтительный мессенджер</span>'
          . '<div class="pc-messengers">'
          . '<button type="button" class="pc-m tg" data-m="tg">' . svgTg(14) . 'Telegram</button>'
          . '<button type="button" class="pc-m wa" data-m="wa">' . svgWa(14) . 'WhatsApp</button>'
@@ -399,11 +399,11 @@ function generatePopupC(array $c): string {
          . '</div>'
          . '<button class="pc-btn" type="submit">' . $c['btn'] . '</button>'
          . '</form>'
-         . '<p class="pc-fine">\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0441\u0432\u044f\u0436\u0435\u0442\u0441\u044f \u0441 \u0432\u0430\u043c\u0438 \u0432 \u0442\u0435\u0447\u0435\u043d\u0438\u0435 15 \u043c\u0438\u043d\u0443\u0442</p>'
+         . '<p class="pc-fine">Менеджер свяжется с вами в течение 15 минут</p>'
          . '</div></div></div>';
 
     $ok = '<div class="pc-ok">'
-        . '<span class="pc-ok-ico">\ud83d\ude80</span>'
+        . '<span class="pc-ok-ico">🚀</span>'
         . '<h3>' . $c['ok_title'] . '</h3>'
         . '<p>' . $c['ok_text'] . '</p>'
         . '</div>';

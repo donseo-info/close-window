@@ -19,14 +19,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
                 $c[$k] = strip_tags((string)($_POST[$k] ?? $def));
             }
         }
-        R::freeze(false);
-        $bean = R::findOne('popup_config', 'variant = ?', [$variant]);
-        if (!$bean) $bean = R::dispense('popup_config');
-        $bean->variant   = $variant;
-        $bean->config    = json_encode($c, JSON_UNESCAPED_UNICODE);
-        $bean->updated_at = date('Y-m-d H:i:s');
-        R::store($bean);
-        R::freeze(true);
+        $json = json_encode($c, JSON_UNESCAPED_UNICODE);
+        $now  = date('Y-m-d H:i:s');
+        $exists = R::getCell('SELECT COUNT(*) FROM popup_config WHERE variant = ?', [$variant]);
+        if ($exists) {
+            R::exec('UPDATE popup_config SET config = ?, updated_at = ? WHERE variant = ?',
+                    [$json, $now, $variant]);
+        } else {
+            R::exec('INSERT INTO popup_config (variant, config, updated_at) VALUES (?, ?, ?)',
+                    [$variant, $json, $now]);
+        }
         $err = buildAndSave($variant, $c);
         R::close();
         if ($err) {
@@ -106,8 +108,8 @@ $popupConfigs = [];
 if ($tab === 'popups') {
     require_once __DIR__ . '/generator.php';
     foreach (['A','B','C'] as $pv) {
-        $bean = R::findOne('popup_config', 'variant = ?', [$pv]);
-        $saved = ($bean && $bean->config) ? json_decode($bean->config, true) : [];
+        $row   = R::getRow('SELECT config FROM popup_config WHERE variant = ?', [$pv]);
+        $saved = ($row && $row['config']) ? json_decode($row['config'], true) : [];
         $popupConfigs[$pv] = array_merge(popupDefaults($pv), $saved ?: []);
     }
 }

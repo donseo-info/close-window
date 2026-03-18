@@ -48,16 +48,14 @@ if ($action === 'open') {
         if ($exists) { echo json_encode(['ok' => true, 'dup' => true]); R::close(); exit; }
     }
 
-    $row               = R::dispense('popup_opens');
-    $row->variant      = $variant;
-    $row->ym_client_id = $ymId;
-    $row->has_ym       = $hasYm;
-    $row->url          = $url;
-    $row->referrer     = $referrer;
-    $row->created_at   = date('Y-m-d H:i:s');
-    R::store($row);
+    R::exec(
+        "INSERT INTO popup_opens (variant, ym_client_id, has_ym, url, referrer, created_at)
+         VALUES (?, ?, ?, ?, ?, datetime('now','localtime'))",
+        [$variant, $ymId, $hasYm, $url, $referrer]
+    );
+    $id = R::getCell('SELECT last_insert_rowid()');
 
-    echo json_encode(['ok' => true, 'id' => (int)$row->id]);
+    echo json_encode(['ok' => true, 'id' => (int)$id]);
     R::close(); exit;
 }
 
@@ -70,17 +68,14 @@ if ($action === 'lead') {
         echo json_encode(['ok' => false, 'error' => 'phone required']); R::close(); exit;
     }
 
-    $lead               = R::dispense('popup_leads');
-    $lead->variant      = $variant;
-    $lead->phone        = preg_replace('/\D/', '', $phone); /* только цифры */
-    $lead->messenger    = $messenger;
-    $lead->ym_client_id = $ymId;
-    $lead->has_ym       = $hasYm;
-    $lead->url          = $url;
-    $lead->created_at   = date('Y-m-d H:i:s');
-    R::store($lead);
+    R::exec(
+        "INSERT INTO popup_leads (variant, phone, messenger, ym_client_id, has_ym, url, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now','localtime'))",
+        [$variant, preg_replace('/\D/', '', $phone), $messenger, $ymId, $hasYm, $url]
+    );
+    $id = R::getCell('SELECT last_insert_rowid()');
 
-    echo json_encode(['ok' => true, 'id' => (int)$lead->id]);
+    echo json_encode(['ok' => true, 'id' => (int)$id]);
     R::close(); exit;
 }
 

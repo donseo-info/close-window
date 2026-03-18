@@ -19,6 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
                 $c[$k] = strip_tags((string)($_POST[$k] ?? $def));
             }
         }
+        $c['enabled'] = isset($_POST['enabled']) ? 1 : 0;
+
         $json = json_encode($c, JSON_UNESCAPED_UNICODE);
         $now  = date('Y-m-d H:i:s');
         $exists = R::getCell('SELECT COUNT(*) FROM popup_config WHERE variant = ?', [$variant]);
@@ -30,6 +32,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
                     [$variant, $json, $now]);
         }
         $err = buildAndSave($variant, $c);
+
+        /* Пересобираем список активных вариантов в popup.min.js */
+        $enabled = [];
+        foreach (['A','B','C'] as $pv) {
+            $row = R::getRow('SELECT config FROM popup_config WHERE variant = ?', [$pv]);
+            $cfg = $row ? json_decode($row['config'], true) : [];
+            if (($cfg['enabled'] ?? 1) == 1) $enabled[] = $pv;
+        }
+        if (!$err) $err = updateLoaderVariants($enabled);
+
         R::close();
         if ($err) {
             header('Location: ?tab=popups&variant=' . $variant . '&err=' . urlencode($err));
@@ -743,14 +755,19 @@ function variantBadge($v) {
       $tabLabels = ['A'=>'Вариант A — Скидка','B'=>'Вариант B — Подарок','C'=>'Вариант C — Прогресс'];
       $tabColors = ['A'=>'#e02020','B'=>'#1db954','C'=>'#2563eb'];
     ?>
-    <?php foreach (['A','B','C'] as $pv): ?>
+    <?php foreach (['A','B','C'] as $pv):
+      $isEnabled = ($popupConfigs[$pv]['enabled'] ?? 1) == 1;
+    ?>
     <li class="nav-item">
       <button class="nav-link <?= $pv === $activeVar ? 'active' : '' ?>"
               data-bs-toggle="tab" data-bs-target="#ptab<?= $pv ?>"
               style="font-size:13px">
         <span style="display:inline-block;width:8px;height:8px;border-radius:50%;
-                     background:<?= $tabColors[$pv] ?>;margin-right:6px"></span>
+                     background:<?= $isEnabled ? $tabColors[$pv] : '#cbd5e1' ?>;margin-right:6px"></span>
         <?= $tabLabels[$pv] ?>
+        <?php if (!$isEnabled): ?>
+          <span class="badge bg-secondary ms-1" style="font-size:10px;font-weight:500">выкл</span>
+        <?php endif ?>
       </button>
     </li>
     <?php endforeach ?>
@@ -888,15 +905,24 @@ function variantBadge($v) {
           </div>
         </div>
 
-        <!-- Кнопка -->
+        <!-- Кнопка + toggle -->
         <div class="d-flex align-items-center gap-3 pt-2" style="border-top:1px solid #f0f4f8">
           <button type="submit" class="btn btn-primary">
             <i class="bi bi-lightning-fill me-1"></i>
             Сохранить и сгенерировать попап <?= $pv ?>
           </button>
-          <div style="font-size:11px;color:#94a3b8">
-            Перезапишет: <code>popup-<?= strtolower($pv) ?>.js</code>
-            и <code>popup-<?= strtolower($pv) ?>.min.js</code>
+          <div class="form-check form-switch mb-0 ms-2">
+            <input class="form-check-input" type="checkbox" role="switch"
+                   name="enabled" id="en<?= $pv ?>" value="1"
+                   <?= ($cfg['enabled'] ?? 1) ? 'checked' : '' ?>>
+            <label class="form-check-label" for="en<?= $pv ?>" style="font-size:13px;cursor:pointer">
+              Участвует в ротации
+            </label>
+          </div>
+          <div style="font-size:11px;color:#94a3b8;margin-left:auto">
+            Перезапишет: <code>popup-<?= strtolower($pv) ?>.js</code>,
+            <code>popup-<?= strtolower($pv) ?>.min.js</code>,
+            <code>popup.min.js</code>
           </div>
         </div>
 

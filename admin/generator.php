@@ -28,6 +28,7 @@ function darkenHex(string $hex, float $f = 0.80): string {
 function popupDefaults(string $v): array {
     $d = [
         'A' => [
+            'enabled'  => 1,
             'color'    => '#e02020',
             'badge'    => '🔥 Только сегодня',
             'headline' => 'Уже уходите?<br>Подождите — скидка&nbsp;−10%!',
@@ -38,6 +39,7 @@ function popupDefaults(string $v): array {
             'timer'    => 180,
         ],
         'B' => [
+            'enabled'   => 1,
             'color'     => '#1db954',
             'headline'  => 'Не уходите с пустыми руками!',
             'subtext'   => 'Бесплатный подарок для вас',
@@ -48,6 +50,7 @@ function popupDefaults(string $v): array {
             'ok_text'   => 'Менеджер напишет вам в ближайшие 5 минут.',
         ],
         'C' => [
+            'enabled'  => 1,
             'color'    => '#2563eb',
             'label'    => '🤔 Подождите секунду',
             'headline' => 'Уже почти всё готово…<br>Остался всего 1 шаг!',
@@ -446,6 +449,36 @@ function generatePopupC(array $c): string {
          . "onSubmit:function(cb){_onSub=cb;},"
          . "onClose:function(cb){_onCls=cb;}};"
          . "})();";
+}
+
+/* ── Обновить список вариантов в popup.js и popup.min.js ── */
+function updateLoaderVariants(array $enabled): ?string {
+    $root = dirname(__DIR__);
+
+    /* popup.js: var VARIANTS = ['A', 'B', 'C']; */
+    $jsFile = $root . '/popup.js';
+    if (file_exists($jsFile) && is_writable($jsFile)) {
+        $arr  = count($enabled) ? "'" . implode("', '", $enabled) . "'" : '';
+        $repl = "var VARIANTS = [{$arr}];";
+        $src  = file_get_contents($jsFile);
+        $new  = preg_replace("/var VARIANTS\s*=\s*\[.*?\];/", $repl, $src);
+        if ($new !== null && $new !== $src) file_put_contents($jsFile, $new);
+    }
+
+    /* popup.min.js: var m=["A","B","C"] (терser переименовал VARIANTS → m) */
+    $minFile = $root . '/popup.min.js';
+    if (!file_exists($minFile)) return 'popup.min.js не найден';
+    if (!is_writable($minFile)) return 'popup.min.js недоступен для записи';
+    $arr  = count($enabled) ? '"' . implode('","', $enabled) . '"' : '';
+    $repl = 'var m=[' . $arr . ']';
+    $src  = file_get_contents($minFile);
+    $new  = preg_replace('/var m=\["[A-C]"(?:,"[A-C]")*\]/', $repl, $src);
+    if ($new === null || $new === $src) {
+        /* Запасной вариант: ищем пустой массив тоже */
+        $new = preg_replace('/var m=\[[^\]]*\](?=,f=)/', $repl, $src);
+    }
+    if ($new && $new !== $src) file_put_contents($minFile, $new);
+    return null;
 }
 
 /* ── Записать .js и .min.js (контент одинаковый — уже компактный) ── */

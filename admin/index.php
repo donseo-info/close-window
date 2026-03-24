@@ -158,9 +158,9 @@ if ($tab === 'domains') {
                SUM(CASE WHEN src='o' THEN cnt ELSE 0 END) as opens,
                SUM(CASE WHEN src='l' THEN cnt ELSE 0 END) as leads
         FROM (
-            SELECT domain, COUNT(*) as cnt, 'o' as src FROM popup_opens WHERE has_ym=1 GROUP BY domain
+            SELECT domain, COUNT(*) as cnt, 'o' as src FROM popup_opens WHERE domain != '' GROUP BY domain
             UNION ALL
-            SELECT domain, COUNT(*) as cnt, 'l' as src FROM popup_leads WHERE has_ym=1 GROUP BY domain
+            SELECT domain, COUNT(*) as cnt, 'l' as src FROM popup_leads WHERE domain != '' GROUP BY domain
         ) x
         GROUP BY domain
         ORDER BY opens DESC

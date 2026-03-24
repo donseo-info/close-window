@@ -117,13 +117,16 @@
     }, 50);
   }
 
-  /* ── 4. Предзагрузка всех скриптов попапов сразу после загрузки страницы ── */
+  /* ── 4. Предзагрузка скрипта попапа для домена ── */
+  var _domain = window.location.hostname.replace(/^www\./i, '');
+
   function loadPopupScript(variant, cb) {
     var globalName = 'Popup' + variant;
     if (window[globalName]) { cb(window[globalName]); return; }
 
     var s = document.createElement('script');
-    s.src = baseUrl + '/popups/popup-' + variant.toLowerCase() + '.min.js?v=2';
+    s.src = baseUrl + '/api/popup.php?variant=' + variant
+          + '&domain=' + encodeURIComponent(_domain);
     s.onload  = function () { cb(window[globalName] || null); };
     s.onerror = function () { cb(null); };
     document.head.appendChild(s);

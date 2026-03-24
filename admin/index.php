@@ -7,6 +7,7 @@ db_ensure_init();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_popup') {
     require_once __DIR__ . '/generator.php';
     $variant = strtoupper($_POST['variant'] ?? '');
+    $domain  = strtolower(preg_replace('/^www\./i', '', trim($_POST['editor_domain'] ?? '')));
     if (in_array($variant, ['A','B','C'], true)) {
         $defaults = popupDefaults($variant);
         $c = [];
@@ -23,30 +24,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
 
         $json = json_encode($c, JSON_UNESCAPED_UNICODE);
         $now  = date('Y-m-d H:i:s');
-        $exists = R::getCell('SELECT COUNT(*) FROM popup_config WHERE variant = ?', [$variant]);
+        $exists = R::getCell(
+            'SELECT COUNT(*) FROM popup_config WHERE domain=? AND variant=?',
+            [$domain, $variant]
+        );
         if ($exists) {
-            R::exec('UPDATE popup_config SET config = ?, updated_at = ? WHERE variant = ?',
-                    [$json, $now, $variant]);
+            R::exec('UPDATE popup_config SET config=?, updated_at=? WHERE domain=? AND variant=?',
+                    [$json, $now, $domain, $variant]);
         } else {
-            R::exec('INSERT INTO popup_config (variant, config, updated_at) VALUES (?, ?, ?)',
-                    [$variant, $json, $now]);
+            R::exec('INSERT INTO popup_config (domain, variant, config, updated_at) VALUES (?,?,?,?)',
+                    [$domain, $variant, $json, $now]);
         }
-        $err = buildAndSave($variant, $c);
 
-        /* Пересобираем список активных вариантов в popup.min.js */
-        $enabled = [];
-        foreach (['A','B','C'] as $pv) {
-            $row = R::getRow('SELECT config FROM popup_config WHERE variant = ?', [$pv]);
-            $cfg = $row ? json_decode($row['config'], true) : [];
-            if (($cfg['enabled'] ?? 1) == 1) $enabled[] = $pv;
+        $err = null;
+        /* Статические файлы перегенерируем только для глобального конфига */
+        if ($domain === '') {
+            $err = buildAndSave($variant, $c);
+            $enabled = [];
+            foreach (['A','B','C'] as $pv) {
+                $row = R::getRow("SELECT config FROM popup_config WHERE domain='' AND variant=?", [$pv]);
+                $cfg = $row ? json_decode($row['config'], true) : [];
+                if (($cfg['enabled'] ?? 1) == 1) $enabled[] = $pv;
+            }
+            if (!$err) $err = updateLoaderVariants($enabled);
         }
-        if (!$err) $err = updateLoaderVariants($enabled);
 
         R::close();
+        $qs = '?tab=popups&variant=' . $variant . '&editor_domain=' . urlencode($domain);
         if ($err) {
-            header('Location: ?tab=popups&variant=' . $variant . '&err=' . urlencode($err));
+            header('Location: ' . $qs . '&err=' . urlencode($err));
         } else {
-            header('Location: ?tab=popups&variant=' . $variant . '&saved=1');
+            header('Location: ' . $qs . '&saved=1');
         }
         exit;
     }
@@ -58,18 +66,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
 /* ── AJAX: сброс статистики ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'clear_stats') {
     header('Content-Type: application/json');
-    R::exec('DELETE FROM popup_opens');
-    R::exec('DELETE FROM popup_leads');
+    $df = trim($_POST['domain_filter'] ?? '');
+    if ($df) {
+        R::exec('DELETE FROM popup_opens WHERE domain=?', [$df]);
+        R::exec('DELETE FROM popup_leads WHERE domain=?', [$df]);
+    } else {
+        R::exec('DELETE FROM popup_opens');
+        R::exec('DELETE FROM popup_leads');
+    }
     echo json_encode(['ok' => true]);
     R::close(); exit;
 }
 
-$tab     = $_GET['tab']  ?? 'dashboard';
+$tab          = $_GET['tab']          ?? 'dashboard';
+$domainFilter = trim($_GET['domain_filter'] ?? '');
+$editorDomain = strtolower(preg_replace('/^www\./i', '', trim($_GET['editor_domain'] ?? '')));
 
 /* ── URL проекта (автоопределение) ── */
-$proto   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$host    = $_SERVER['HTTP_HOST'] ?? 'yourdomain.ru';
-// admin находится в /close-window/admin/, поднимаемся на уровень выше
+$proto    = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host     = $_SERVER['HTTP_HOST'] ?? 'yourdomain.ru';
 $adminDir = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/admin/index.php'), '/\\');
 $baseDir  = rtrim(dirname($adminDir), '/\\');
 $baseUrl  = $proto . '://' . $host . $baseDir;
@@ -80,21 +95,41 @@ $perPage = 25;
 $offset  = ($page - 1) * $perPage;
 $today   = date('Y-m-d');
 
-/* ── Общая статистика (только has_ym=1 учитывается в конверсии) ── */
-$totalOpens   = (int)R::getCell("SELECT COUNT(*) FROM popup_opens  WHERE has_ym=1");
-$totalLeads   = (int)R::getCell("SELECT COUNT(*) FROM popup_leads  WHERE has_ym=1");
-$totalLeadsAll= (int)R::getCell("SELECT COUNT(*) FROM popup_leads");
-$convRate     = $totalOpens > 0 ? round($totalLeads / $totalOpens * 100, 1) : 0;
+/* ── Список известных доменов ── */
+$knownDomains = array_column(R::getAll(
+    "SELECT domain FROM (
+        SELECT domain FROM popup_opens WHERE domain != ''
+        UNION
+        SELECT domain FROM popup_leads WHERE domain != ''
+     ) ORDER BY domain"
+), 'domain');
 
-$opensToday   = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE has_ym=1 AND DATE(created_at)=?", [$today]);
-$leadsToday   = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE has_ym=1 AND DATE(created_at)=?", [$today]);
+/* ── Фильтр по домену ── */
+$dfWhere  = $domainFilter ? " AND domain = ?" : "";
+$dfParams = $domainFilter ? [$domainFilter] : [];
+
+/* ── Общая статистика ── */
+$totalOpens    = (int)R::getCell("SELECT COUNT(*) FROM popup_opens  WHERE has_ym=1" . $dfWhere, $dfParams);
+$totalLeads    = (int)R::getCell("SELECT COUNT(*) FROM popup_leads  WHERE has_ym=1" . $dfWhere, $dfParams);
+$totalLeadsAll = (int)R::getCell("SELECT COUNT(*) FROM popup_leads" . $dfWhere, $dfParams);
+$convRate      = $totalOpens > 0 ? round($totalLeads / $totalOpens * 100, 1) : 0;
+
+$opensToday = (int)R::getCell(
+    "SELECT COUNT(*) FROM popup_opens WHERE has_ym=1 AND DATE(created_at)=?" . $dfWhere,
+    array_merge([$today], $dfParams)
+);
+$leadsToday = (int)R::getCell(
+    "SELECT COUNT(*) FROM popup_leads WHERE has_ym=1 AND DATE(created_at)=?" . $dfWhere,
+    array_merge([$today], $dfParams)
+);
 
 /* ── По вариантам ── */
 $variantStats = [];
 foreach (['A', 'B', 'C'] as $v) {
-    $opens = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE variant=? AND has_ym=1", [$v]);
-    $leads = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE variant=? AND has_ym=1", [$v]);
-    $leadsNoYm = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE variant=? AND has_ym=0", [$v]);
+    $vp = array_merge([$v], $dfParams);
+    $opens     = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE variant=? AND has_ym=1"  . $dfWhere, $vp);
+    $leads     = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE variant=? AND has_ym=1"  . $dfWhere, $vp);
+    $leadsNoYm = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE variant=? AND has_ym=0"  . $dfWhere, $vp);
     $variantStats[$v] = [
         'opens'      => $opens,
         'leads'      => $leads,
@@ -110,29 +145,62 @@ $chartLeads = [];
 for ($i = 6; $i >= 0; $i--) {
     $d = date('Y-m-d', strtotime("-{$i} days"));
     $chartDays[]  = date('d.m', strtotime($d));
-    $chartOpens[] = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE DATE(created_at)=? AND has_ym=1", [$d]);
-    $chartLeads[] = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE DATE(created_at)=? AND has_ym=1", [$d]);
+    $dp = array_merge([$d], $dfParams);
+    $chartOpens[] = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE DATE(created_at)=? AND has_ym=1" . $dfWhere, $dp);
+    $chartLeads[] = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE DATE(created_at)=? AND has_ym=1" . $dfWhere, $dp);
 }
 
-/* ── Таблица лидов ── */
+/* ── Статистика по доменам (вкладка Домены) ── */
+$domainStats = [];
+if ($tab === 'domains') {
+    $domainStats = R::getAll("
+        SELECT domain,
+               SUM(CASE WHEN src='o' THEN cnt ELSE 0 END) as opens,
+               SUM(CASE WHEN src='l' THEN cnt ELSE 0 END) as leads
+        FROM (
+            SELECT domain, COUNT(*) as cnt, 'o' as src FROM popup_opens WHERE has_ym=1 GROUP BY domain
+            UNION ALL
+            SELECT domain, COUNT(*) as cnt, 'l' as src FROM popup_leads WHERE has_ym=1 GROUP BY domain
+        ) x
+        GROUP BY domain
+        ORDER BY opens DESC
+    ");
+    foreach ($domainStats as &$ds) {
+        $ds['conv'] = $ds['opens'] > 0 ? round($ds['leads'] / $ds['opens'] * 100, 1) : 0;
+    }
+    unset($ds);
+}
+
 /* ── Конфиги попапов (для вкладки редактора) ── */
 $popupConfigs = [];
 if ($tab === 'popups') {
     require_once __DIR__ . '/generator.php';
     foreach (['A','B','C'] as $pv) {
-        $row   = R::getRow('SELECT config FROM popup_config WHERE variant = ?', [$pv]);
+        /* Сначала домен-специфичный конфиг, потом глобальный */
+        $row = null;
+        if ($editorDomain !== '') {
+            $row = R::getRow('SELECT config FROM popup_config WHERE domain=? AND variant=?', [$editorDomain, $pv]);
+        }
+        if (!$row) {
+            $row = R::getRow("SELECT config FROM popup_config WHERE domain='' AND variant=?", [$pv]);
+        }
         $saved = ($row && $row['config']) ? json_decode($row['config'], true) : [];
         $popupConfigs[$pv] = array_merge(popupDefaults($pv), $saved ?: []);
     }
 }
 
+/* ── Таблица лидов ── */
 $leadRows  = [];
 $leadTotal = 0;
 $leadPages = 1;
 if ($tab === 'leads') {
-    $search = trim($_GET['search'] ?? '');
+    $search  = trim($_GET['search'] ?? '');
     $vFilter = strtoupper(trim($_GET['variant'] ?? ''));
     $where = []; $params = [];
+    if ($domainFilter) {
+        $where[]  = 'domain = ?';
+        $params[] = $domainFilter;
+    }
     if ($search) {
         $where[]  = '(phone LIKE ? OR ym_client_id LIKE ?)';
         $params[] = "%{$search}%";
@@ -177,6 +245,10 @@ function variantBadge($v) {
     $col = $c[$v] ?? '#888';
     return "<span class='badge' style='background:{$col};font-size:11px'>Вариант {$v}</span>";
 }
+function domainBadge($d) {
+    if (!$d) return '<span class="text-muted" style="font-size:11px">— глобальный —</span>';
+    return "<span style='font-size:12px;font-family:monospace;background:#f1f5f9;padding:2px 6px;border-radius:4px'>" . esc($d) . "</span>";
+}
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -200,6 +272,11 @@ function variantBadge($v) {
     border-radius:8px;display:flex;align-items:center;justify-content:center;
     color:#fff;font-size:14px}
   .ct-now{color:#94a3b8;font-size:11px}
+
+  /* ── Фильтр домена ── */
+  .domain-bar{background:#fff;border-bottom:1px solid #dbeafe;padding:8px 24px;
+    display:flex;align-items:center;gap:10px;font-size:12px}
+  .domain-bar label{color:#64748b;font-weight:600;white-space:nowrap}
 
   /* ── Навигация ── */
   .ct-nav{background:#fff;border-bottom:1px solid #dbeafe;padding:0 24px}
@@ -253,6 +330,10 @@ function variantBadge($v) {
     font-size:12px;line-height:1.7;overflow-x:auto;white-space:pre;margin:0;
     font-family:'Cascadia Code','Fira Code','Courier New',monospace}
   .copy-btn.copied{background:#1db954;border-color:#1db954;color:#fff}
+
+  /* ── Domain filter badge ── */
+  .filter-badge{background:#dbeafe;color:#1d4ed8;padding:2px 10px;border-radius:20px;
+    font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
 </style>
 </head>
 <body>
@@ -275,10 +356,18 @@ function variantBadge($v) {
       </a>
     </li>
     <li class="nav-item">
-      <a class="nav-link <?= activeTab('leads',$tab) ?>" href="?tab=leads">
+      <a class="nav-link <?= activeTab('leads',$tab) ?>" href="?tab=leads<?= $domainFilter ? '&domain_filter='.urlencode($domainFilter) : '' ?>">
         <i class="bi bi-person-lines-fill"></i> Заявки
         <?php if ($totalLeadsAll > 0): ?>
           <span class="badge bg-primary ms-1" style="font-size:10px"><?= $totalLeadsAll ?></span>
+        <?php endif ?>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link <?= activeTab('domains',$tab) ?>" href="?tab=domains">
+        <i class="bi bi-globe2"></i> Домены
+        <?php if (count($knownDomains) > 0): ?>
+          <span class="badge bg-secondary ms-1" style="font-size:10px"><?= count($knownDomains) ?></span>
         <?php endif ?>
       </a>
     </li>
@@ -294,6 +383,29 @@ function variantBadge($v) {
     </li>
   </ul>
 </nav>
+
+<!-- ── Строка фильтра по домену (для дашборда и заявок) ── -->
+<?php if (in_array($tab, ['dashboard','leads'], true)): ?>
+<div class="domain-bar">
+  <label><i class="bi bi-funnel me-1"></i>Домен:</label>
+  <form method="get" class="d-flex gap-2 align-items-center">
+    <input type="hidden" name="tab" value="<?= esc($tab) ?>">
+    <select name="domain_filter" class="form-select form-select-sm" style="max-width:220px"
+            onchange="this.form.submit()">
+      <option value="">— Все домены —</option>
+      <?php foreach ($knownDomains as $kd): ?>
+        <option value="<?= esc($kd) ?>" <?= $domainFilter===$kd?'selected':'' ?>><?= esc($kd) ?></option>
+      <?php endforeach ?>
+    </select>
+    <?php if ($domainFilter): ?>
+      <span class="filter-badge">
+        <i class="bi bi-globe2"></i> <?= esc($domainFilter) ?>
+        <a href="?tab=<?= esc($tab) ?>" class="text-decoration-none ms-1" style="color:inherit">✕</a>
+      </span>
+    <?php endif ?>
+  </form>
+</div>
+<?php endif ?>
 
 <div class="container-fluid px-3 px-md-4 py-4" style="max-width:1200px">
 
@@ -348,6 +460,7 @@ function variantBadge($v) {
         <div class="stat-sub">не в общей статистике</div>
       </div>
     </div>
+
   </div>
 
   <div class="row g-3 mb-4">
@@ -477,7 +590,12 @@ function variantBadge($v) {
   <!-- ── Сброс ── -->
   <div class="text-end">
     <button class="btn btn-sm btn-outline-danger" id="btn-clear">
-      <i class="bi bi-trash3"></i> Сбросить всю статистику
+      <i class="bi bi-trash3"></i>
+      <?php if ($domainFilter): ?>
+        Сбросить статистику для «<?= esc($domainFilter) ?>»
+      <?php else: ?>
+        Сбросить всю статистику
+      <?php endif ?>
     </button>
   </div>
 
@@ -491,6 +609,9 @@ function variantBadge($v) {
   <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
     <form method="get" class="d-flex gap-2 flex-wrap" style="flex:1">
       <input type="hidden" name="tab" value="leads">
+      <?php if ($domainFilter): ?>
+        <input type="hidden" name="domain_filter" value="<?= esc($domainFilter) ?>">
+      <?php endif ?>
       <input class="form-control form-control-sm" style="max-width:200px"
              name="search" value="<?= esc($search) ?>" placeholder="Телефон / ClientID…">
       <select class="form-select form-select-sm" style="max-width:160px" name="variant">
@@ -503,7 +624,8 @@ function variantBadge($v) {
         <i class="bi bi-search"></i> Найти
       </button>
       <?php if ($search || $vFilter): ?>
-        <a href="?tab=leads" class="btn btn-outline-secondary btn-sm">Сброс</a>
+        <a href="?tab=leads<?= $domainFilter ? '&domain_filter='.urlencode($domainFilter) : '' ?>"
+           class="btn btn-outline-secondary btn-sm">Сброс</a>
       <?php endif ?>
     </form>
     <div style="font-size:12px;color:#94a3b8">
@@ -523,12 +645,12 @@ function variantBadge($v) {
         <tr>
           <th>#</th>
           <th>Дата</th>
+          <th>Домен</th>
           <th>Вариант</th>
           <th>Телефон</th>
           <th>Мессенджер</th>
           <th>Яндекс ClientID</th>
           <th>Метрика</th>
-          <th>URL</th>
         </tr>
       </thead>
       <tbody>
@@ -536,6 +658,16 @@ function variantBadge($v) {
       <tr>
         <td style="color:#94a3b8"><?= esc($r['id']) ?></td>
         <td style="white-space:nowrap"><?= esc($r['created_at']) ?></td>
+        <td>
+          <?php if ($r['domain']): ?>
+            <a href="?tab=leads&domain_filter=<?= urlencode($r['domain']) ?>"
+               style="font-size:11px;font-family:monospace;color:#2563eb;text-decoration:none">
+              <?= esc($r['domain']) ?>
+            </a>
+          <?php else: ?>
+            <span class="text-muted">—</span>
+          <?php endif ?>
+        </td>
         <td><?= variantBadge($r['variant']) ?></td>
         <td class="fw-600" style="white-space:nowrap"><?= fmtPhone($r['phone']) ?></td>
         <td><?= messengerBadge($r['messenger']) ?></td>
@@ -552,14 +684,6 @@ function variantBadge($v) {
           <?php else: ?>
             <span class="badge bg-secondary" style="font-size:10px">нет</span>
           <?php endif ?>
-        </td>
-        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-          <?php if ($r['url']): ?>
-            <a href="<?= esc($r['url']) ?>" target="_blank" title="<?= esc($r['url']) ?>"
-               style="font-size:11px;color:#2563eb">
-              <?= esc(parse_url($r['url'], PHP_URL_HOST) ?: $r['url']) ?>
-            </a>
-          <?php else: ?>—<?php endif ?>
         </td>
       </tr>
       <?php endforeach ?>
@@ -582,14 +706,131 @@ function variantBadge($v) {
 
   <?php endif ?>
 
+<?php elseif ($tab === 'domains'): ?>
+
+  <!-- ── Вкладка: домены ── -->
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <div style="font-size:16px;font-weight:700;color:#0f172a">Статистика по доменам</div>
+      <div style="font-size:12px;color:#94a3b8">Сайты, на которых установлен попап</div>
+    </div>
+    <a href="?tab=popups" class="btn btn-primary btn-sm">
+      <i class="bi bi-pencil-square me-1"></i> Настроить попапы
+    </a>
+  </div>
+
+  <?php if (empty($domainStats)): ?>
+    <div class="empty-state">
+      <i class="bi bi-globe2"></i>
+      <p>Данных пока нет. Установите попап на сайт и подождите первых показов.</p>
+    </div>
+  <?php else: ?>
+  <?php
+    $maxDomainOpens = max(array_column($domainStats, 'opens') ?: [1]);
+  ?>
+  <div class="card border-0 ct-table mb-4">
+    <table class="table table-hover mb-0 ct-table">
+      <thead>
+        <tr>
+          <th>Домен</th>
+          <th>Открытий<br><small class="text-muted fw-normal">(с Метрикой)</small></th>
+          <th>Заявок<br><small class="text-muted fw-normal">(с Метрикой)</small></th>
+          <th>Конверсия</th>
+          <th>Активность</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+      <?php foreach ($domainStats as $ds): ?>
+      <?php
+        $barW = $maxDomainOpens > 0 ? round($ds['opens'] / $maxDomainOpens * 100) : 0;
+        $convColor = $ds['conv'] >= 5 ? '#1db954' : ($ds['conv'] >= 2 ? '#f59e0b' : '#94a3b8');
+      ?>
+      <tr>
+        <td>
+          <div style="font-family:monospace;font-size:13px;font-weight:600">
+            <?= $ds['domain'] ? esc($ds['domain']) : '<span class="text-muted">—</span>' ?>
+          </div>
+        </td>
+        <td class="fw-600"><?= $ds['opens'] ?></td>
+        <td class="fw-600" style="color:#1db954"><?= $ds['leads'] ?></td>
+        <td>
+          <span style="font-weight:700;color:<?= $convColor ?>"><?= $ds['conv'] ?>%</span>
+        </td>
+        <td style="min-width:120px">
+          <div class="d-flex align-items-center gap-2">
+            <div class="vbar flex-grow-1">
+              <div class="vbar-fill" style="width:<?= $barW ?>%;background:#3b82f6"></div>
+            </div>
+            <span style="font-size:11px;color:#94a3b8;width:30px"><?= $barW ?>%</span>
+          </div>
+        </td>
+        <td>
+          <div class="d-flex gap-1">
+            <a href="?tab=dashboard&domain_filter=<?= urlencode($ds['domain']) ?>"
+               class="btn btn-sm btn-outline-primary" title="Статистика">
+              <i class="bi bi-bar-chart"></i>
+            </a>
+            <?php if ($ds['domain']): ?>
+            <a href="?tab=popups&editor_domain=<?= urlencode($ds['domain']) ?>"
+               class="btn btn-sm btn-outline-secondary" title="Настроить попапы">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <?php endif ?>
+          </div>
+        </td>
+      </tr>
+      <?php endforeach ?>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── Сводка по конфигам ── -->
+  <div class="chart-wrap">
+    <div class="section-title mb-3">Конфигурации попапов по доменам</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:16px">
+      Домен-специфичный конфиг перекрывает глобальный. Если для домена конфига нет — используется глобальный.
+    </div>
+    <?php
+      $configRows = R::getAll("SELECT domain, variant, updated_at FROM popup_config ORDER BY domain, variant");
+      $cfgByDomain = [];
+      foreach ($configRows as $cr) {
+          $cfgByDomain[$cr['domain']][] = $cr['variant'];
+      }
+    ?>
+    <?php if (empty($cfgByDomain)): ?>
+      <div class="text-muted" style="font-size:12px">Конфигурации ещё не настроены.</div>
+    <?php else: ?>
+    <div class="row g-2">
+      <?php foreach ($cfgByDomain as $cfgDomain => $variants): ?>
+      <div class="col-12 col-md-6 col-lg-4">
+        <div style="border:1px solid #dbeafe;border-radius:8px;padding:12px">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <?= domainBadge($cfgDomain) ?>
+          </div>
+          <div class="d-flex gap-1 flex-wrap">
+            <?php foreach ($variants as $cv): ?>
+              <?= variantBadge($cv) ?>
+            <?php endforeach ?>
+          </div>
+          <div class="mt-2">
+            <a href="?tab=popups&editor_domain=<?= urlencode($cfgDomain) ?>"
+               style="font-size:11px;color:#2563eb">
+              <i class="bi bi-pencil"></i> Редактировать
+            </a>
+          </div>
+        </div>
+      </div>
+      <?php endforeach ?>
+    </div>
+    <?php endif ?>
+  </div>
+  <?php endif ?>
+
 <?php elseif ($tab === 'install'): ?>
 
   <!-- ── Вкладка: установка ── -->
   <?php
-    $codeSimple = '<script src="' . $scriptUrl . '"' . "\n" .
-      '        data-gate="' . $gateUrl . '"' . "\n" .
-      '        data-counter="XXXXXXXX"></script>';
-
     $codeAsync = '(function(w,d,s,u,g,c){' . "\n" .
       '  w._EI={gate:g,counter:c};' . "\n" .
       '  var el=d.createElement(s);el.async=1;el.src=u;' . "\n" .
@@ -613,7 +854,6 @@ function variantBadge($v) {
 
   <div class="row g-3">
 
-    <!-- Инфо-блок -->
     <div class="col-12">
       <div class="chart-wrap" style="border-left:4px solid #3b82f6">
         <div class="d-flex align-items-start gap-3">
@@ -623,7 +863,7 @@ function variantBadge($v) {
             <div style="color:#64748b;font-size:12px;line-height:1.6">
               Вставьте один из вариантов кода перед закрывающим тегом <code>&lt;/body&gt;</code>.
               Замените <code>XXXXXXXX</code> на номер вашего счётчика Яндекс.Метрики.
-              Если счётчика нет — оставьте поле пустым или уберите параметр <code>data-counter</code>.
+              Попап автоматически определяет домен сайта и подгружает нужный конфиг.
             </div>
           </div>
         </div>
@@ -675,7 +915,6 @@ function variantBadge($v) {
           </button>
         </div>
         <pre id="code-gtm" class="install-code"><?= htmlspecialchars($codeGtm, ENT_QUOTES, 'UTF-8') ?></pre>
-
         <div class="mt-3 p-3" style="background:#f8faff;border-radius:8px;font-size:12px;color:#475569">
           <strong>Шаги в GTM:</strong>
           <ol class="mb-0 mt-1" style="padding-left:18px;line-height:1.8">
@@ -729,7 +968,8 @@ function variantBadge($v) {
   <?php if ($savedOk): ?>
   <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
     <i class="bi bi-check-circle-fill me-2"></i>
-    Конфиг сохранён, файлы попапа перегенерированы.
+    Конфиг сохранён<?= $editorDomain ? " для домена «{$editorDomain}»" : ' (глобальный)' ?>.
+    <?= $editorDomain === '' ? ' Файлы попапа перегенерированы.' : '' ?>
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
   </div>
   <?php endif ?>
@@ -741,11 +981,47 @@ function variantBadge($v) {
   </div>
   <?php endif ?>
 
-  <!-- Заголовок -->
-  <div class="d-flex align-items-center gap-3 mb-4">
-    <div>
-      <div style="font-size:16px;font-weight:700;color:#0f172a">Редактор попапов</div>
-      <div style="font-size:12px;color:#94a3b8">Изменения сразу записываются в .js и .min.js файлы</div>
+  <!-- ── Выбор домена для редактирования ── -->
+  <div class="chart-wrap mb-4" style="padding:16px 20px">
+    <div class="d-flex flex-wrap align-items-center gap-3">
+      <div style="font-weight:600;font-size:13px;color:#0f172a;white-space:nowrap">
+        <i class="bi bi-globe2 me-1 text-primary"></i> Редактируем конфиг для:
+      </div>
+      <form method="get" class="d-flex gap-2 align-items-center flex-wrap">
+        <input type="hidden" name="tab"     value="popups">
+        <input type="hidden" name="variant" value="<?= esc($activeVar) ?>">
+        <select name="editor_domain" class="form-select form-select-sm" style="max-width:240px"
+                onchange="this.form.submit()">
+          <option value="">🌐 Глобальный (для всех доменов)</option>
+          <?php foreach ($knownDomains as $kd): ?>
+            <option value="<?= esc($kd) ?>" <?= $editorDomain===$kd?'selected':'' ?>><?= esc($kd) ?></option>
+          <?php endforeach ?>
+        </select>
+        <div style="font-size:11px;color:#94a3b8">
+          или введите домен вручную:
+        </div>
+        <div class="input-group input-group-sm" style="max-width:200px">
+          <span class="input-group-text" style="font-size:11px">domain.ru</span>
+          <input type="text" name="editor_domain_manual" class="form-control"
+                 id="manual-domain" placeholder="example.com" style="font-size:12px">
+          <button class="btn btn-outline-secondary" type="button" onclick="applyManualDomain()">→</button>
+        </div>
+      </form>
+      <?php if ($editorDomain): ?>
+        <span class="filter-badge">
+          <i class="bi bi-globe2"></i> <?= esc($editorDomain) ?>
+          <a href="?tab=popups&variant=<?= esc($activeVar) ?>"
+             class="text-decoration-none ms-1" style="color:inherit">✕</a>
+        </span>
+        <div style="font-size:11px;color:#f59e0b">
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>
+          Этот конфиг перекрывает глобальный только для данного домена.
+        </div>
+      <?php else: ?>
+        <div style="font-size:11px;color:#64748b">
+          Глобальный конфиг применяется ко всем доменам без индивидуальной настройки.
+        </div>
+      <?php endif ?>
     </div>
   </div>
 
@@ -779,8 +1055,9 @@ function variantBadge($v) {
     ?>
     <div class="tab-pane fade <?= $pv === $activeVar ? 'show active' : '' ?>" id="ptab<?= $pv ?>">
       <form method="post">
-        <input type="hidden" name="action"  value="save_popup">
-        <input type="hidden" name="variant" value="<?= $pv ?>">
+        <input type="hidden" name="action"        value="save_popup">
+        <input type="hidden" name="variant"       value="<?= $pv ?>">
+        <input type="hidden" name="editor_domain" value="<?= esc($editorDomain) ?>">
 
         <!-- Блок 1: Оформление -->
         <div class="mb-4">
@@ -909,7 +1186,7 @@ function variantBadge($v) {
         <div class="d-flex align-items-center gap-3 pt-2" style="border-top:1px solid #f0f4f8">
           <button type="submit" class="btn btn-primary">
             <i class="bi bi-lightning-fill me-1"></i>
-            Сохранить и сгенерировать попап <?= $pv ?>
+            Сохранить<?= $editorDomain ? ' для «' . esc($editorDomain) . '»' : ' глобально' ?>
           </button>
           <div class="form-check form-switch mb-0 ms-2">
             <input class="form-check-input" type="checkbox" role="switch"
@@ -919,11 +1196,18 @@ function variantBadge($v) {
               Участвует в ротации
             </label>
           </div>
+          <?php if ($editorDomain === ''): ?>
           <div style="font-size:11px;color:#94a3b8;margin-left:auto">
             Перезапишет: <code>popup-<?= strtolower($pv) ?>.js</code>,
             <code>popup-<?= strtolower($pv) ?>.min.js</code>,
             <code>popup.min.js</code>
           </div>
+          <?php else: ?>
+          <div style="font-size:11px;color:#64748b;margin-left:auto">
+            <i class="bi bi-info-circle me-1"></i>
+            Домен-специфичный конфиг сохраняется только в БД. Попап отдаётся динамически.
+          </div>
+          <?php endif ?>
         </div>
 
       </form>
@@ -947,46 +1231,64 @@ setInterval(function(){
     String(d.getMinutes()).padStart(2,'0');
 }, 30000);
 
+/* Синхронизация color picker ↔ текстовое поле */
+<?php foreach (['A','B','C'] as $pv): ?>
+(function(){
+  var cp = document.getElementById('cp<?= $pv ?>');
+  var ct = document.getElementById('ct<?= $pv ?>');
+  if (!cp || !ct) return;
+  cp.addEventListener('input', function(){ ct.value = cp.value; });
+  ct.addEventListener('input', function(){
+    if (/^#[0-9a-fA-F]{6}$/.test(ct.value)) cp.value = ct.value;
+  });
+})();
+<?php endforeach ?>
+
+/* Ввод домена вручную */
+function applyManualDomain() {
+  var inp = document.getElementById('manual-domain');
+  if (!inp || !inp.value.trim()) return;
+  var d = inp.value.trim().replace(/^www\./i, '').toLowerCase();
+  var url = new URL(window.location.href);
+  url.searchParams.set('editor_domain', d);
+  window.location.href = url.toString();
+}
+document.getElementById('manual-domain')?.addEventListener('keydown', function(e){
+  if (e.key === 'Enter') { e.preventDefault(); applyManualDomain(); }
+});
+
 /* Копирование кода */
-document.querySelectorAll('.copy-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    var text;
-    var targetId = btn.getAttribute('data-target');
-    if (targetId) {
-      text = document.getElementById(targetId).textContent;
-    } else {
-      text = btn.getAttribute('data-value');
+document.querySelectorAll('.copy-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var target = btn.dataset.target;
+    var text   = btn.dataset.value;
+    if (target) {
+      var el = document.getElementById(target);
+      if (el) text = el.textContent;
     }
-    navigator.clipboard.writeText(text).then(function() {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(function(){
       var orig = btn.innerHTML;
-      btn.innerHTML = '<i class="bi bi-check2"></i> Скопировано';
       btn.classList.add('copied');
-      setTimeout(function() { btn.innerHTML = orig; btn.classList.remove('copied'); }, 2000);
+      btn.innerHTML = '<i class="bi bi-check2"></i> Скопировано';
+      setTimeout(function(){ btn.classList.remove('copied'); btn.innerHTML = orig; }, 1800);
     });
   });
 });
 
-/* Color picker ↔ text input sync */
-['A','B','C'].forEach(function(v) {
-  var cp = document.getElementById('cp' + v);
-  var ct = document.getElementById('ct' + v);
-  if (!cp || !ct) return;
-  cp.addEventListener('input', function() { ct.value = cp.value; });
-  ct.addEventListener('input', function() {
-    if (/^#[0-9a-fA-F]{6}$/.test(ct.value)) cp.value = ct.value;
-  });
-});
-
 /* Сброс статистики */
-var clearBtn = document.getElementById('btn-clear');
-if (clearBtn) {
-  clearBtn.addEventListener('click', function() {
-    if (!confirm('Сбросить всю статистику? Действие необратимо.')) return;
+var btnClear = document.getElementById('btn-clear');
+if (btnClear) {
+  btnClear.addEventListener('click', function(){
+    if (!confirm('Удалить статистику? Это действие необратимо.')) return;
     var fd = new FormData();
     fd.append('action', 'clear_stats');
-    fetch('', {method:'POST', body: fd})
+    <?php if ($domainFilter): ?>
+    fd.append('domain_filter', '<?= esc($domainFilter) ?>');
+    <?php endif ?>
+    fetch(window.location.pathname, { method:'POST', body: fd })
       .then(function(r){ return r.json(); })
-      .then(function(){ location.reload(); });
+      .then(function(d){ if (d.ok) location.reload(); });
   });
 }
 </script>

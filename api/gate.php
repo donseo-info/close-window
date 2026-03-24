@@ -25,12 +25,20 @@ function g(array $src, string $key, string $default = ''): string {
     return trim((string)($src[$key] ?? $default));
 }
 
+/* Извлечь домен из URL (без www.) */
+function extractDomain(string $url): string {
+    if (!$url) return '';
+    $host = parse_url($url, PHP_URL_HOST) ?: '';
+    return preg_replace('/^www\./i', '', strtolower($host));
+}
+
 $action   = g($raw, 'action');
 $variant  = strtoupper(g($raw, 'variant'));
 $ymId     = g($raw, 'ym_client_id');
 $hasYm    = (int)(bool)($raw['has_ym'] ?? 0);
 $url      = g($raw, 'url');
 $referrer = g($raw, 'referrer');
+$domain   = extractDomain($url);
 
 if (!in_array($variant, ['A', 'B', 'C'], true)) {
     echo json_encode(['ok' => false, 'error' => 'bad variant']); exit;
@@ -49,9 +57,9 @@ if ($action === 'open') {
     }
 
     R::exec(
-        "INSERT INTO popup_opens (variant, ym_client_id, has_ym, url, referrer, created_at)
-         VALUES (?, ?, ?, ?, ?, datetime('now','localtime'))",
-        [$variant, $ymId, $hasYm, $url, $referrer]
+        "INSERT INTO popup_opens (variant, domain, ym_client_id, has_ym, url, referrer, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, datetime('now','localtime'))",
+        [$variant, $domain, $ymId, $hasYm, $url, $referrer]
     );
     $id = R::getCell('SELECT last_insert_rowid()');
 
@@ -69,9 +77,9 @@ if ($action === 'lead') {
     }
 
     R::exec(
-        "INSERT INTO popup_leads (variant, phone, messenger, ym_client_id, has_ym, url, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now','localtime'))",
-        [$variant, preg_replace('/\D/', '', $phone), $messenger, $ymId, $hasYm, $url]
+        "INSERT INTO popup_leads (variant, domain, phone, messenger, ym_client_id, has_ym, url, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))",
+        [$variant, $domain, preg_replace('/\D/', '', $phone), $messenger, $ymId, $hasYm, $url]
     );
     $id = R::getCell('SELECT last_insert_rowid()');
 

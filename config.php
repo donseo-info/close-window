@@ -21,6 +21,7 @@ function db_ensure_init() {
     R::exec("CREATE TABLE IF NOT EXISTS popup_opens (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         variant      TEXT    NOT NULL,
+        domain       TEXT    NOT NULL DEFAULT '',
         ym_client_id TEXT    NOT NULL DEFAULT '',
         has_ym       INTEGER NOT NULL DEFAULT 0,
         url          TEXT,
@@ -30,6 +31,7 @@ function db_ensure_init() {
     R::exec("CREATE TABLE IF NOT EXISTS popup_leads (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         variant      TEXT    NOT NULL,
+        domain       TEXT    NOT NULL DEFAULT '',
         phone        TEXT    NOT NULL,
         messenger    TEXT    DEFAULT '',
         ym_client_id TEXT    NOT NULL DEFAULT '',
@@ -38,9 +40,43 @@ function db_ensure_init() {
         created_at   TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )");
     R::exec("CREATE TABLE IF NOT EXISTS popup_config (
-        variant    TEXT PRIMARY KEY,
-        config     TEXT NOT NULL DEFAULT '{}',
-        updated_at TEXT
+        domain     TEXT    NOT NULL DEFAULT '',
+        variant    TEXT    NOT NULL,
+        config     TEXT    NOT NULL DEFAULT '{}',
+        updated_at TEXT,
+        PRIMARY KEY (domain, variant)
     )");
+    db_migrate();
     R::freeze(true);
+}
+
+/* Миграция схемы для существующих БД */
+function db_migrate() {
+    /* Добавляем колонку domain в popup_opens */
+    $cols = R::getAll("PRAGMA table_info(popup_opens)");
+    if (!array_filter($cols, fn($c) => $c['name'] === 'domain')) {
+        R::exec("ALTER TABLE popup_opens ADD COLUMN domain TEXT NOT NULL DEFAULT ''");
+    }
+
+    /* Добавляем колонку domain в popup_leads */
+    $cols = R::getAll("PRAGMA table_info(popup_leads)");
+    if (!array_filter($cols, fn($c) => $c['name'] === 'domain')) {
+        R::exec("ALTER TABLE popup_leads ADD COLUMN domain TEXT NOT NULL DEFAULT ''");
+    }
+
+    /* Мигрируем popup_config: добавляем колонку domain и меняем PK */
+    $cols = R::getAll("PRAGMA table_info(popup_config)");
+    if (!array_filter($cols, fn($c) => $c['name'] === 'domain')) {
+        R::exec("CREATE TABLE popup_config_v2 (
+            domain     TEXT    NOT NULL DEFAULT '',
+            variant    TEXT    NOT NULL,
+            config     TEXT    NOT NULL DEFAULT '{}',
+            updated_at TEXT,
+            PRIMARY KEY (domain, variant)
+        )");
+        R::exec("INSERT INTO popup_config_v2 (domain, variant, config, updated_at)
+                 SELECT '', variant, config, updated_at FROM popup_config");
+        R::exec("DROP TABLE popup_config");
+        R::exec("ALTER TABLE popup_config_v2 RENAME TO popup_config");
+    }
 }

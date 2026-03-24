@@ -101,7 +101,7 @@ $knownDomains = array_column(R::getAll(
         SELECT domain FROM popup_opens WHERE domain != ''
         UNION
         SELECT domain FROM popup_leads WHERE domain != ''
-     ) ORDER BY domain"
+     ) AS t ORDER BY domain"
 ), 'domain');
 
 /* ── Фильтр по домену ── */
@@ -166,9 +166,18 @@ if ($tab === 'domains') {
         ORDER BY opens DESC
     ");
     foreach ($domainStats as &$ds) {
-        $ds['conv'] = $ds['opens'] > 0 ? round($ds['leads'] / $ds['opens'] * 100, 1) : 0;
+        $ds['conv'] = (int)$ds['opens'] > 0 ? round((int)$ds['leads'] / (int)$ds['opens'] * 100, 1) : 0;
     }
     unset($ds);
+}
+
+/* ── Конфиги попапов по доменам (для вкладки Домены) ── */
+$cfgByDomain = [];
+if ($tab === 'domains') {
+    $configRows = R::getAll("SELECT domain, variant, updated_at FROM popup_config ORDER BY domain, variant");
+    foreach ($configRows as $cr) {
+        $cfgByDomain[$cr['domain']][] = $cr['variant'];
+    }
 }
 
 /* ── Конфиги попапов (для вкладки редактора) ── */
@@ -791,13 +800,6 @@ function domainBadge($d) {
     <div style="font-size:12px;color:#64748b;margin-bottom:16px">
       Домен-специфичный конфиг перекрывает глобальный. Если для домена конфига нет — используется глобальный.
     </div>
-    <?php
-      $configRows = R::getAll("SELECT domain, variant, updated_at FROM popup_config ORDER BY domain, variant");
-      $cfgByDomain = [];
-      foreach ($configRows as $cr) {
-          $cfgByDomain[$cr['domain']][] = $cr['variant'];
-      }
-    ?>
     <?php if (empty($cfgByDomain)): ?>
       <div class="text-muted" style="font-size:12px">Конфигурации ещё не настроены.</div>
     <?php else: ?>

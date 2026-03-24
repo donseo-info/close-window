@@ -111,7 +111,10 @@ $dfParams = $domainFilter ? [$domainFilter] : [];
 /* ── Общая статистика ── */
 $totalOpens    = (int)R::getCell("SELECT COUNT(*) FROM popup_opens  WHERE has_ym=1" . $dfWhere, $dfParams);
 $totalLeads    = (int)R::getCell("SELECT COUNT(*) FROM popup_leads  WHERE has_ym=1" . $dfWhere, $dfParams);
-$totalLeadsAll = (int)R::getCell("SELECT COUNT(*) FROM popup_leads" . $dfWhere, $dfParams);
+$totalLeadsAll = (int)R::getCell(
+    "SELECT COUNT(*) FROM popup_leads" . ($domainFilter ? " WHERE domain = ?" : ""),
+    $dfParams
+);
 $convRate      = $totalOpens > 0 ? round($totalLeads / $totalOpens * 100, 1) : 0;
 
 $opensToday = (int)R::getCell(

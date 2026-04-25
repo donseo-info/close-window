@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Тестовая страница · Exit Intent</title>
+
+  <!-- Яндекс.Метрика -->
+  <script>
+    (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+    m[i].l=1*new Date();
+    for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}
+    k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
+    (window,document,"script","https://mc.yandex.ru/metrika/tag.js","ym");
+    ym(107404488,"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true});
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { overflow-x: hidden; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f4f8;
+      color: #333;
+    }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: #fff;
+      padding: 80px 20px;
+      text-align: center;
+    }
+    .hero h1 { font-size: clamp(26px, 6vw, 40px); font-weight: 800; margin-bottom: 16px; line-height: 1.2; }
+    .hero p  { font-size: 18px; opacity: .75; max-width: 520px; margin: 0 auto 32px; }
+    .hero-btn {
+      display: inline-block; padding: 14px 36px;
+      background: #25c16f; color: #fff; border-radius: 50px;
+      font-size: 16px; font-weight: 600; text-decoration: none;
+      transition: filter .2s;
+    }
+    .hero-btn:hover { filter: brightness(1.1); }
+
+    /* Секции контента */
+    .section { padding: 56px 20px; max-width: 900px; margin: 0 auto; }
+    .section h2 { font-size: 26px; font-weight: 700; margin-bottom: 20px; color: #1a1a2e; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: #fff; border-radius: 16px; padding: 28px 22px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    }
+    .card-icon { font-size: 36px; margin-bottom: 12px; }
+    .card h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #1a1a2e; }
+    .card p  { font-size: 14px; color: #777; line-height: 1.5; }
+
+    .program-section {
+      background: #fff; border-radius: 20px; padding: 40px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    }
+    .program-section h2 { margin-bottom: 16px; }
+    .program-section p { color: #666; line-height: 1.6; margin-bottom: 12px; }
+
+    footer {
+      text-align: center; padding: 40px 20px;
+      color: #aaa; font-size: 13px;
+    }
+
+    /* ── Тест-панель ── */
+    .dev-panel {
+      background: #fff; border: 2px dashed #ddd; border-radius: 16px;
+      padding: 24px; margin: 32px 20px; max-width: 900px; margin-left: auto; margin-right: auto;
+    }
+    .dev-title {
+      font-size: 11px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: #999; margin-bottom: 16px;
+    }
+    .popup-grid {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px;
+    }
+    @media(max-width: 540px) { .popup-grid { grid-template-columns: 1fr; } }
+
+    .pcard {
+      border: 1px solid #e8e8e8; border-radius: 10px; padding: 14px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .pcard-top { display: flex; align-items: center; gap: 10px; }
+    .pbadge {
+      width: 26px; height: 26px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0;
+    }
+    .pa { background: #e02020; }
+    .pb { background: #1db954; }
+    .pc { background: #2563eb; }
+    .pcard-name { font-size: 12px; font-weight: 700; }
+    .pcard-sub  { font-size: 10px; color: #999; }
+    .pcard-desc { font-size: 11px; color: #777; line-height: 1.4; flex: 1; }
+
+    .pbtn {
+      width: 100%; border: none; border-radius: 7px;
+      padding: 8px; font-size: 12px; font-weight: 600;
+      cursor: pointer; color: #fff; transition: filter .15s, transform .12s;
+    }
+    .pbtn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .pbtn:active { transform: translateY(0); }
+    .pa-btn { background: #e02020; }
+    .pb-btn { background: #1db954; }
+    .pc-btn { background: #2563eb; }
+
+    .random-btn {
+      width: 100%; background: #fff; border: 1.5px dashed #ccc;
+      border-radius: 8px; padding: 10px;
+      font-size: 12px; font-weight: 600; color: #555;
+      cursor: pointer; transition: all .15s; margin-bottom: 6px;
+    }
+    .random-btn:hover { border-color: #999; color: #111; }
+
+    .reset-link {
+      display: block; text-align: center; font-size: 11px;
+      color: #bbb; cursor: pointer; text-decoration: underline;
+    }
+    .reset-link:hover { color: #e02020; }
+    .last-shown { text-align: center; font-size: 11px; color: #aaa; min-height: 16px; margin-bottom: 4px; }
+
+    .log-box { background: #1a1a2e; border-radius: 10px; overflow: hidden; margin-top: 16px; }
+    .log-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 14px; font-size: 11px; font-weight: 600; color: #888;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    .log-clear {
+      background: none; border: 1px solid rgba(255,255,255,.1);
+      border-radius: 4px; padding: 2px 8px;
+      font-size: 10px; color: #555; cursor: pointer;
+    }
+    .log-clear:hover { color: #ef4444; }
+    .log-body { padding: 10px 14px; min-height: 50px; max-height: 160px; overflow-y: auto; }
+    .log-empty { font-size: 11px; color: #444; font-style: italic; }
+    .log-entry { font-family: monospace; font-size: 11px; color: #4ade80; margin-bottom: 3px; line-height: 1.5; }
+    .log-entry::before { content: "▶ "; color: #555; }
+  </style>
+</head>
+<body>
+
+<!-- Hero -->
+<section class="hero">
+  <h1>Онлайн-курс по&nbsp;программированию</h1>
+  <p>Научитесь создавать современные веб-приложения с нуля за&nbsp;6&nbsp;месяцев</p>
+  <a href="#" class="hero-btn">Записаться на курс</a>
+</section>
+
+<!-- Контент для реалистичного скролла -->
+<div class="section">
+  <h2>Чему вы научитесь</h2>
+  <div class="cards">
+    <div class="card">
+      <div class="card-icon">⚡</div>
+      <h3>JavaScript</h3>
+      <p>Современный ES2024+, асинхронное программирование, паттерны проектирования</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🎨</div>
+      <h3>Frontend</h3>
+      <p>React, Next.js, TypeScript, адаптивная вёрстка и анимации</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔧</div>
+      <h3>Backend</h3>
+      <p>Node.js, Express, базы данных PostgreSQL и MongoDB</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🚀</div>
+      <h3>DevOps</h3>
+      <p>Docker, CI/CD, деплой на облачные сервисы</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="program-section">
+    <h2>Программа курса</h2>
+    <p>Полная программа включает 48 занятий, 12 практических проектов и персонального ментора. Вы получите все необходимые знания для старта карьеры full-stack разработчика.</p>
+    <p>Формат: онлайн, 3 раза в неделю по 1.5 часа. Старт каждый месяц.</p>
+  </div>
+</div>
+
+<!-- Тест-панель (для разработки) -->
+<div class="dev-panel">
+  <div class="dev-title">🔧 Dev · Ручное управление попапами</div>
+
+  <div class="popup-grid">
+    <div class="pcard">
+      <div class="pcard-top">
+        <div class="pbadge pa">A</div>
+        <div><div class="pcard-name">FOMO + скидка</div><div class="pcard-sub">Красный · таймер</div></div>
+      </div>
+      <div class="pcard-desc">«Уже уходите? Скидка −10%!» + обратный отсчёт</div>
+      <button class="pbtn pa-btn" onclick="EI&&EI.show('A')">Показать A</button>
+    </div>
+    <div class="pcard">
+      <div class="pcard-top">
+        <div class="pbadge pb">B</div>
+        <div><div class="pcard-name">Подарок</div><div class="pcard-sub">Зелёный · PDF-гайд</div></div>
+      </div>
+      <div class="pcard-desc">«Не уходите с пустыми руками» + гайд за контакт</div>
+      <button class="pbtn pb-btn" onclick="EI&&EI.show('B')">Показать B</button>
+    </div>
+    <div class="pcard">
+      <div class="pcard-top">
+        <div class="pbadge pc">C</div>
+        <div><div class="pcard-name">Зейгарник</div><div class="pcard-sub">Синий · прогресс</div></div>
+      </div>
+      <div class="pcard-desc">«Остался 1 шаг» + прогресс-бар + чеклист</div>
+      <button class="pbtn pc-btn" onclick="EI&&EI.show('C')">Показать C</button>
+    </div>
+  </div>
+
+  <button class="random-btn" onclick="EI&&EI.show()">🎲 Случайный вариант (как при реальном exit-intent)</button>
+  <div class="last-shown" id="last-shown"></div>
+  <span class="reset-link" onclick="EI&&EI.reset();document.getElementById('last-shown').textContent='Сессия сброшена ✓'">
+    сбросить сессию (чтобы exit-intent сработал снова)
+  </span>
+
+  <div class="log-box">
+    <div class="log-head">
+      📋 onSubmit — данные формы
+      <button class="log-clear" onclick="document.getElementById('log-body').innerHTML='<div class=\'log-empty\'>Событий пока нет…</div>'">очистить</button>
+    </div>
+    <div class="log-body" id="log-body">
+      <div class="log-empty">Событий пока нет…</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  © 2026 · Тестовая страница exit-intent попапа · <a href="/admin/" style="color:#aaa">Админка</a>
+</footer>
+
+<!-- Exit Intent виджет -->
+<script>
+(function(w,d,s,u,g,c){
+  w._EI={gate:g,counter:c};
+  var el=d.createElement(s);el.async=1;el.src=u;
+  d.head.appendChild(el);
+})(window,document,'script',
+  'http://close-window.loc/popup.js',
+  'http://close-window.loc/api/gate.php',
+  '107404488');
+</script>
+
+<!-- Лог: перехватываем onSubmit после загрузки popup.js -->
+<script>
+(function poll(){
+  if (!window.EI) { setTimeout(poll, 100); return; }
+  var orig = EI.show;
+  EI.show = function(variant) {
+    orig.call(EI, variant);
+    setTimeout(function(){
+      ['A','B','C'].forEach(function(n){
+        var p = window['Popup'+n];
+        if (!p || p._logPatched) return;
+        p._logPatched = true;
+        var origSub = p.onSubmit.bind(p);
+        p.onSubmit = function(cb){
+          origSub(function(data){
+            logEvent(data);
+            if (cb) cb(data);
+          });
+        };
+      });
+      document.getElementById('last-shown').textContent =
+        'Показан вариант: ' + (variant ? variant.toUpperCase() : 'случайный');
+    }, 200);
+  };
+})();
+
+function logEvent(data) {
+  var body = document.getElementById('log-body');
+  var empty = body.querySelector('.log-empty');
+  if (empty) empty.remove();
+  var d = document.createElement('div');
+  d.className = 'log-entry';
+  d.textContent = JSON.stringify(data);
+  body.insertBefore(d, body.firstChild);
+}
+</script>
+
+</body>
+</html>

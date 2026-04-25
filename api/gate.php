@@ -137,16 +137,19 @@ $url      = g($raw, 'url');
 $referrer = g($raw, 'referrer');
 $key      = g($raw, 'key');
 
-/* Определяем сайт: по api_key (приоритет) или по домену из URL */
-$siteRow  = null;
-if ($key) {
-    $siteRow = R::getRow('SELECT id, domain FROM sites WHERE api_key=? AND is_active=1', [$key]);
+/* Определяем сайт по api_key — без key запрос отклоняется */
+if (!$key) {
+    echo json_encode(['ok' => false, 'error' => 'key required']); R::close(); exit;
 }
-$domain  = $siteRow ? $siteRow['domain'] : extractDomain($url);
-$siteId  = $siteRow ? (int)$siteRow['id'] : null;
+$siteRow = R::getRow('SELECT id, domain FROM sites WHERE api_key=? AND is_active=1', [$key]);
+if (!$siteRow) {
+    echo json_encode(['ok' => false, 'error' => 'site not found']); R::close(); exit;
+}
+$domain = $siteRow['domain'];
+$siteId = (int)$siteRow['id'];
 
 if (!in_array($variant, ['A', 'B', 'C'], true)) {
-    echo json_encode(['ok' => false, 'error' => 'bad variant']); exit;
+    echo json_encode(['ok' => false, 'error' => 'bad variant']); R::close(); exit;
 }
 
 /* ── action=open ── */

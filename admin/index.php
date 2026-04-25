@@ -112,7 +112,7 @@ if ($postAction === 'save_integrations') {
     $siteId  = (int)($_POST['site_id'] ?? 0);
     $type    = trim($_POST['type'] ?? '');
     $enabled = (int)(bool)($_POST['enabled'] ?? 0);
-    if (!$siteId || !in_array($type, ['telegram', 'bitrix24'], true)) {
+    if (!$siteId || !in_array($type, ['telegram', 'bitrix24', 'yandex_metrika'], true)) {
         echo json_encode(['ok' => false, 'error' => 'invalid']); R::close(); exit;
     }
     $cfg = [];
@@ -123,6 +123,8 @@ if ($postAction === 'save_integrations') {
         $cf = [];
         foreach ($keys as $i => $k) { $k = trim($k); $v = trim($vals[$i] ?? ''); if ($k !== '') $cf[$k] = $v; }
         $cfg = ['b24_webhook' => trim($_POST['b24_webhook'] ?? ''), 'b24_custom_fields' => $cf];
+    } elseif ($type === 'yandex_metrika') {
+        $cfg = ['goal_open' => trim($_POST['ym_goal_open'] ?? ''), 'goal_lead' => trim($_POST['ym_goal_lead'] ?? '')];
     }
     $json   = json_encode($cfg, JSON_UNESCAPED_UNICODE);
     $exists = R::getCell('SELECT COUNT(*) FROM site_integrations WHERE site_id=? AND type=?', [$siteId, $type]);
@@ -243,7 +245,7 @@ if ($siteId) {
     }
 
     /* ── Integrations ── */
-    $integData = ['telegram' => ['config' => [], 'enabled' => 0], 'bitrix24' => ['config' => [], 'enabled' => 0]];
+    $integData = ['telegram' => ['config' => [], 'enabled' => 0], 'bitrix24' => ['config' => [], 'enabled' => 0], 'yandex_metrika' => ['config' => [], 'enabled' => 0]];
     if ($tab === 'integrations') {
         $rows = R::getAll('SELECT type, config, enabled FROM site_integrations WHERE site_id=?', [$siteId]);
         foreach ($rows as $row) {
@@ -592,6 +594,8 @@ function variantBadge($v) {
     $b24Cfg = $integData['bitrix24']['config'];
     $b24On  = $integData['bitrix24']['enabled'];
     $b24CF  = $b24Cfg['b24_custom_fields'] ?? [];
+    $ymCfg  = $integData['yandex_metrika']['config'];
+    $ymOn   = $integData['yandex_metrika']['enabled'];
   ?>
 
   <div id="int-alert" class="alert d-none mb-3" style="font-size:13px"></div>
@@ -657,6 +661,35 @@ function variantBadge($v) {
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-outline-secondary" onclick="testBitrix24(this)"><i class="bi bi-send me-1"></i>Тест</button>
           <button class="btn btn-sm btn-primary ms-auto" onclick="saveIntegration('bitrix24',this)"><i class="bi bi-check2 me-1"></i>Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-1">
+    <div class="col-12 col-lg-6">
+      <div class="chart-wrap h-100" style="border-top:3px solid #f90">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <div style="font-size:20px;color:#f90"><i class="bi bi-bar-chart-line"></i></div>
+          <div><div style="font-weight:700;font-size:14px">Яндекс.Метрика</div><div style="font-size:11px;color:#94a3b8">Отправка целей в браузере клиента</div></div>
+          <div class="ms-auto"><div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="ym-enabled" <?= $ymOn?'checked':'' ?>>
+            <label class="form-check-label" for="ym-enabled" style="font-size:12px">Включено</label>
+          </div></div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" style="font-size:12px;font-weight:600">Цель при показе попапа</label>
+          <input type="text" id="ym-goal-open" class="form-control form-control-sm" placeholder="exitintent_open" value="<?= esc($ymCfg['goal_open']??'') ?>">
+          <div class="form-text" style="font-size:11px">Срабатывает когда попап открылся</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" style="font-size:12px;font-weight:600">Цель при отправке заявки</label>
+          <input type="text" id="ym-goal-lead" class="form-control form-control-sm" placeholder="exitintent_lead" value="<?= esc($ymCfg['goal_lead']??'') ?>">
+          <div class="form-text" style="font-size:11px">Срабатывает после успешной отправки формы</div>
+        </div>
+        <div class="form-text mb-3" style="font-size:11px">Цели вызываются через <code>ym(id, 'reachGoal', ...)</code> напрямую в браузере. ID счётчика берётся из кода установки виджета.</div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-primary ms-auto" onclick="saveIntegration('yandex_metrika',this)"><i class="bi bi-check2 me-1"></i>Сохранить</button>
         </div>
       </div>
     </div>
@@ -860,13 +893,17 @@ function saveIntegration(type, btn) {
     fd.append('enabled', document.getElementById('tg-enabled').checked ? '1' : '0');
     fd.append('tg_token', document.getElementById('tg-token').value.trim());
     fd.append('tg_chat_id', document.getElementById('tg-chat-id').value.trim());
-  } else {
+  } else if (type === 'bitrix24') {
     fd.append('enabled', document.getElementById('b24-enabled').checked ? '1' : '0');
     fd.append('b24_webhook', document.getElementById('b24-webhook').value.trim());
     document.querySelectorAll('.cf-row').forEach(function(row){
       fd.append('cf_key[]', row.querySelector('[name="cf_key[]"]').value.trim());
       fd.append('cf_value[]', row.querySelector('[name="cf_value[]"]').value.trim());
     });
+  } else if (type === 'yandex_metrika') {
+    fd.append('enabled', document.getElementById('ym-enabled').checked ? '1' : '0');
+    fd.append('ym_goal_open', document.getElementById('ym-goal-open').value.trim());
+    fd.append('ym_goal_lead', document.getElementById('ym-goal-lead').value.trim());
   }
   fetch(window.location.pathname, {method:'POST',body:fd}).then(r=>r.json()).then(d=>{
     btn.disabled=false; btn.innerHTML=orig;

@@ -30,10 +30,11 @@ $domain = preg_replace('/^www\./i', '', $domain);
 
 db_ensure_init();
 
-/* Если передан key — определяем домен по сайту */
-if ($key && !$domain) {
-    $site = R::getRow('SELECT domain FROM sites WHERE api_key=? AND is_active=1', [$key]);
-    if ($site) $domain = $site['domain'];
+/* Если передан key — определяем домен и site_id по сайту */
+$siteId = null;
+if ($key) {
+    $site = R::getRow('SELECT id, domain FROM sites WHERE api_key=? AND is_active=1', [$key]);
+    if ($site) { $siteId = (int)$site['id']; if (!$domain) $domain = $site['domain']; }
 }
 
 /* Ищем конфиг: сначала домен-специфичный, потом глобальный */
@@ -51,6 +52,20 @@ if (!$row) {
     );
 }
 
+/* Цели Яндекс.Метрики для этого сайта */
+$ymGoals = ['goal_open' => '', 'goal_lead' => ''];
+if ($siteId) {
+    $ymRow = R::getRow(
+        "SELECT config FROM site_integrations WHERE site_id=? AND type='yandex_metrika' AND enabled=1",
+        [$siteId]
+    );
+    if ($ymRow) {
+        $ymCfg = json_decode($ymRow['config'], true) ?: [];
+        $ymGoals['goal_open'] = trim($ymCfg['goal_open'] ?? '');
+        $ymGoals['goal_lead'] = trim($ymCfg['goal_lead'] ?? '');
+    }
+}
+
 $defaults = popupDefaults($variant);
 $saved    = ($row && $row['config']) ? json_decode($row['config'], true) : [];
 $cfg      = array_merge($defaults, $saved ?: []);
@@ -61,6 +76,11 @@ R::close();
 if (($cfg['enabled'] ?? 1) != 1) {
     echo '// disabled';
     exit;
+}
+
+/* Вшиваем цели ЯМ — popup.js прочитает их из window._EI_ym */
+if ($ymGoals['goal_open'] !== '' || $ymGoals['goal_lead'] !== '') {
+    echo 'window._EI_ym=' . json_encode($ymGoals, JSON_UNESCAPED_UNICODE) . ';' . "\n";
 }
 
 $fn = 'generatePopup' . $variant;

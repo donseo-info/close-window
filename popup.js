@@ -196,6 +196,11 @@
             ym_client_id: ymId,
             has_ym:       hasYm
           });
+          /* Цель «лид» в Яндекс.Метрику */
+          var goalLead = window._EI_ym && window._EI_ym.goal_lead;
+          if (goalLead && counterId && window.ym) {
+            try { ym(counterId, 'reachGoal', goalLead); } catch (e) {}
+          }
         });
 
         /* Уведомление об открытии — только если ym есть */
@@ -206,6 +211,12 @@
             ym_client_id: ymId,
             has_ym:       1
           });
+        }
+
+        /* Цель «показ попапа» в Яндекс.Метрику */
+        var goalOpen = window._EI_ym && window._EI_ym.goal_open;
+        if (goalOpen && counterId && window.ym) {
+          try { ym(counterId, 'reachGoal', goalOpen); } catch (e) {}
         }
 
         popup.show();

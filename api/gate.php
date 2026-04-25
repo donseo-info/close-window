@@ -143,6 +143,9 @@ if (!in_array($variant, ['A', 'B', 'C'], true)) {
 
 /* ── action=open ── */
 if ($action === 'open') {
+    /* Регистрируем домен в sites при первом показе */
+    if ($domain) getSiteId($domain);
+
     /* Дедупликация: не пишем если в эту минуту уже есть открытие с тем же ym_client_id */
     if ($ymId) {
         $exists = R::getCell(
@@ -153,10 +156,12 @@ if ($action === 'open') {
         if ($exists) { echo json_encode(['ok' => true, 'dup' => true]); R::close(); exit; }
     }
 
+    $siteId = $domain ? R::getCell('SELECT id FROM sites WHERE domain=?', [$domain]) : null;
+
     R::exec(
-        "INSERT INTO popup_opens (variant, domain, ym_client_id, has_ym, url, referrer, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, datetime('now','localtime'))",
-        [$variant, $domain, $ymId, $hasYm, $url, $referrer]
+        "INSERT INTO popup_opens (variant, domain, site_id, ym_client_id, has_ym, url, referrer, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))",
+        [$variant, $domain, $siteId, $ymId, $hasYm, $url, $referrer]
     );
     $id = R::getCell('SELECT last_insert_rowid()');
 

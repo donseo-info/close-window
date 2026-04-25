@@ -41,6 +41,10 @@
     || (window._EI && window._EI.gate)
     || '';
 
+  var siteKey = (scriptEl && scriptEl.dataset.key)
+    || (window._EI && window._EI.key)
+    || '';
+
   var counterId = (scriptEl && scriptEl.dataset.counter)
     || (window._EI && window._EI.counter)
     || '';
@@ -126,7 +130,7 @@
 
     var s = document.createElement('script');
     s.src = baseUrl + '/api/popup.php?variant=' + variant
-          + '&domain=' + encodeURIComponent(_domain);
+          + (siteKey ? '&key=' + encodeURIComponent(siteKey) : '&domain=' + encodeURIComponent(_domain));
     s.onload  = function () { cb(window[globalName] || null); };
     s.onerror = function () { cb(null); };
     document.head.appendChild(s);
@@ -150,6 +154,7 @@
     if (!gateUrl) return;
     data.url      = window.location.href;
     data.referrer = document.referrer || '';
+    if (siteKey) data.key = siteKey;
     try {
       fetch(gateUrl, {
         method: 'POST',

@@ -102,6 +102,16 @@ function db_migrate() {
             R::exec("ALTER TABLE {$tbl} ADD COLUMN site_id INTEGER");
         }
     }
+
+    /* Добавляем is_active, updated_at в sites */
+    $cols = R::getAll("PRAGMA table_info(sites)");
+    $siteColNames = array_column($cols, 'name');
+    if (!in_array('is_active', $siteColNames)) {
+        R::exec("ALTER TABLE sites ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1");
+    }
+    if (!in_array('updated_at', $siteColNames)) {
+        R::exec("ALTER TABLE sites ADD COLUMN updated_at TEXT");
+    }
 }
 
 /* Получить или создать site_id по домену */

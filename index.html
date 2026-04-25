@@ -240,15 +240,16 @@
   © 2026 · Тестовая страница exit-intent попапа · <a href="/admin/" style="color:#aaa">Админка</a>
 </footer>
 
-<!-- Exit Intent виджет -->
+<!-- Exit Intent виджет (key берётся со страницы установки в админке) -->
 <script>
-(function(w,d,s,u,g,c){
-  w._EI={gate:g,counter:c};
+(function(w,d,s,u,g,k,c){
+  w._EI={gate:g,key:k,counter:c};
   var el=d.createElement(s);el.async=1;el.src=u;
   d.head.appendChild(el);
 })(window,document,'script',
   'http://close-window.loc/popup.js',
   'http://close-window.loc/api/gate.php',
+  'SITE_API_KEY',
   '107404488');
 </script>
 

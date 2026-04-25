@@ -135,7 +135,15 @@ $ymId     = g($raw, 'ym_client_id');
 $hasYm    = (int)(bool)($raw['has_ym'] ?? 0);
 $url      = g($raw, 'url');
 $referrer = g($raw, 'referrer');
-$domain   = extractDomain($url);
+$key      = g($raw, 'key');
+
+/* Определяем сайт: по api_key (приоритет) или по домену из URL */
+$siteRow  = null;
+if ($key) {
+    $siteRow = R::getRow('SELECT id, domain FROM sites WHERE api_key=? AND is_active=1', [$key]);
+}
+$domain  = $siteRow ? $siteRow['domain'] : extractDomain($url);
+$siteId  = $siteRow ? (int)$siteRow['id'] : null;
 
 if (!in_array($variant, ['A', 'B', 'C'], true)) {
     echo json_encode(['ok' => false, 'error' => 'bad variant']); exit;
@@ -143,8 +151,8 @@ if (!in_array($variant, ['A', 'B', 'C'], true)) {
 
 /* ── action=open ── */
 if ($action === 'open') {
-    /* Регистрируем домен в sites при первом показе */
-    if ($domain) getSiteId($domain);
+    /* Если сайт не найден по key, регистрируем/ищем по домену */
+    if (!$siteId && $domain) $siteId = getSiteId($domain);
 
     /* Дедупликация: не пишем если в эту минуту уже есть открытие с тем же ym_client_id */
     if ($ymId) {
@@ -155,8 +163,6 @@ if ($action === 'open') {
         );
         if ($exists) { echo json_encode(['ok' => true, 'dup' => true]); R::close(); exit; }
     }
-
-    $siteId = $domain ? R::getCell('SELECT id FROM sites WHERE domain=?', [$domain]) : null;
 
     R::exec(
         "INSERT INTO popup_opens (variant, domain, site_id, ym_client_id, has_ym, url, referrer, created_at)
@@ -179,7 +185,7 @@ if ($action === 'lead') {
     }
 
     $cleanPhone = preg_replace('/\D/', '', $phone);
-    $siteId     = $domain ? getSiteId($domain) : null;
+    if (!$siteId && $domain) $siteId = getSiteId($domain);
 
     R::exec(
         "INSERT INTO popup_leads (variant, domain, site_id, phone, messenger, ym_client_id, has_ym, url, created_at)

@@ -24,10 +24,17 @@ if (!in_array($variant, ['A', 'B', 'C'], true)) {
     exit;
 }
 
+$key    = trim($_GET['key'] ?? '');
 $domain = strtolower(trim($_GET['domain'] ?? ''));
 $domain = preg_replace('/^www\./i', '', $domain);
 
 db_ensure_init();
+
+/* Если передан key — определяем домен по сайту */
+if ($key && !$domain) {
+    $site = R::getRow('SELECT domain FROM sites WHERE api_key=? AND is_active=1', [$key]);
+    if ($site) $domain = $site['domain'];
+}
 
 /* Ищем конфиг: сначала домен-специфичный, потом глобальный */
 $row = null;

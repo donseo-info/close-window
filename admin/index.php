@@ -668,10 +668,14 @@ function variantBadge($v) {
     $scriptUrl = $baseUrl . '/popup.js';
     $gateUrl   = $baseUrl . '/api/gate.php';
     $apiKey    = $site['api_key'];
+
+    /* Вариант 1 — простой тег */
     $codeSimple = '<script src="' . $scriptUrl . '"' . "\n" .
       '        data-gate="' . $gateUrl . '"' . "\n" .
       '        data-key="' . $apiKey . '"' . "\n" .
-      '        data-counter="ВАШ_СЧЁТЧИК_ЯМ"></script>';
+      '        data-counter="XXXXXXXX"></script>';
+
+    /* Вариант 2 — асинхронный */
     $codeAsync = '(function(w,d,s,u,g,k,c){' . "\n" .
       '  w._EI={gate:g,key:k,counter:c};' . "\n" .
       '  var el=d.createElement(s);el.async=1;el.src=u;' . "\n" .
@@ -680,7 +684,33 @@ function variantBadge($v) {
       '  \'' . $scriptUrl . '\',' . "\n" .
       '  \'' . $gateUrl . '\',' . "\n" .
       '  \'' . $apiKey . '\',' . "\n" .
-      '  \'ВАШ_СЧЁТЧИК_ЯМ\');';
+      '  \'XXXXXXXX\');';
+
+    /* Вариант 3 — с разбивкой домена (защита от парсеров) */
+    $iHost     = parse_url($scriptUrl, PHP_URL_HOST);
+    $iProto    = parse_url($scriptUrl, PHP_URL_SCHEME) . '://';
+    $iBasePath = rtrim(dirname(parse_url($scriptUrl, PHP_URL_PATH)), '/');
+    $iLen = strlen($iHost);
+    $p1 = (int)round($iLen / 3); $p2 = (int)round($iLen * 2 / 3);
+    $iH1 = substr($iHost, 0, $p1); $iH2 = substr($iHost, $p1, $p2 - $p1); $iH3 = substr($iHost, $p2);
+    $iPLen = strlen($iBasePath);
+    $pp1 = (int)round($iPLen / 3); $pp2 = (int)round($iPLen * 2 / 3);
+    $iP1 = substr($iBasePath, 0, $pp1); $iP2 = substr($iBasePath, $pp1, $pp2 - $pp1); $iP3 = substr($iBasePath, $pp2);
+
+    $codeObfuscated = '(function(){' . "\n" .
+      'var _h=\'' . $iH1 . '\'+\'' . $iH2 . '\'+\'' . $iH3 . '\';' . "\n" .
+      'var _p=\'' . $iP1 . '\'+\'' . $iP2 . '\'+\'' . $iP3 . '\';' . "\n" .
+      'var _e=\'.p\'+\'hp\';' . "\n" .
+      '(function(w,d,s,u,g,k,c){' . "\n" .
+      '  w._EI={gate:g,key:k,counter:c};' . "\n" .
+      '  var el=d.createElement(s);el.async=1;el.src=u;' . "\n" .
+      '  d.head.appendChild(el);' . "\n" .
+      '})(window,document,\'script\',' . "\n" .
+      '  \'' . $iProto . '\'+_h+_p+\'/popup.js\',' . "\n" .
+      '  \'' . $iProto . '\'+_h+_p+\'/api/gate\'+_e,' . "\n" .
+      '  \'' . $apiKey . '\',' . "\n" .
+      '  \'XXXXXXXX\');' . "\n" .
+      '})();';
   ?>
 
   <div class="row g-3">
@@ -716,6 +746,19 @@ function variantBadge($v) {
           <button class="btn btn-sm btn-outline-primary copy-btn" data-target="code-async"><i class="bi bi-clipboard"></i> Копировать</button>
         </div>
         <pre id="code-async" class="install-code"><?= htmlspecialchars('<script>' . "\n" . $codeAsync . "\n" . '</script>', ENT_QUOTES, 'UTF-8') ?></pre>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="chart-wrap">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <div class="section-title mb-0">Вариант 3 — с разбивкой домена</div>
+            <div style="font-size:11px;color:#94a3b8">Домен и путь разбиты на части — защита от простых парсеров</div>
+          </div>
+          <button class="btn btn-sm btn-outline-primary copy-btn" data-target="code-obf"><i class="bi bi-clipboard"></i> Копировать</button>
+        </div>
+        <pre id="code-obf" class="install-code"><?= htmlspecialchars('<script>' . "\n" . $codeObfuscated . "\n" . '</script>', ENT_QUOTES, 'UTF-8') ?></pre>
       </div>
     </div>
 

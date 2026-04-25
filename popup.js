@@ -194,7 +194,9 @@
             phone:        data.phone     || '',
             messenger:    data.messenger || '',
             ym_client_id: ymId,
-            has_ym:       hasYm
+            has_ym:       hasYm,
+            email:        data.email     || '',
+            _csrf:        window._EI_csrf || ''
           });
           /* Цель «лид» в Яндекс.Метрику */
           var goalLead = window._EI_ym && window._EI_ym.goal_lead;

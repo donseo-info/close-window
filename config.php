@@ -9,6 +9,9 @@ define('RB_PATH',  __DIR__ . '/rb.php');
 /* Путь к SQLite базе данных */
 define('DB_PATH',  __DIR__ . '/db/exit_intent.db');
 
+/* CSRF: секрет для HMAC-токенов (сменить на продакшене) */
+define('CSRF_SECRET', 'change-me-on-production-' . md5(__FILE__));
+
 /* Авто-инициализация: создаём директорию и таблицы при первом запуске */
 function db_ensure_init() {
     $dir = dirname(DB_PATH);

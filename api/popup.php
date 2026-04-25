@@ -78,6 +78,11 @@ if (($cfg['enabled'] ?? 1) != 1) {
     exit;
 }
 
+/* CSRF: токен по 5-минутному окну + api_key (проверяется в gate.php) */
+$csrfWindow = (int)floor(time() / 300);
+$csrfToken  = hash_hmac('sha256', $csrfWindow . ':' . $key, CSRF_SECRET);
+echo "window._EI_csrf='" . $csrfToken . "';\n";
+
 /* Вшиваем цели ЯМ — popup.js прочитает их из window._EI_ym */
 if ($ymGoals['goal_open'] !== '' || $ymGoals['goal_lead'] !== '') {
     echo 'window._EI_ym=' . json_encode($ymGoals, JSON_UNESCAPED_UNICODE) . ';' . "\n";

@@ -146,6 +146,7 @@ function generatePopupA(array $c): string {
          . '<button type="button" class="pa-m-btn mx" data-m="mx">' . svgMx() . 'Max</button>'
          . '</div>'
          . '<button class="pa-submit" type="submit">' . $c['btn'] . '</button>'
+         . '<input id="pa-hp" type="email" name="email" tabindex="-1" autocomplete="off" style="position:absolute!important;left:-9999px!important;opacity:0!important;height:0!important;pointer-events:none!important;" aria-hidden="true">'
          . '</form>'
          . '<p class="pa-agree">Нажимая кнопку, вы соглашаетесь с политикой конфиденциальности</p>'
          . '</div></div></div>';
@@ -183,7 +184,8 @@ function generatePopupA(array $c): string {
          . "document.getElementById('pa-form').addEventListener('submit',function(e){"
          . "e.preventDefault();var tel=document.getElementById('pa-tel').value.trim();"
          . "if(!tel){document.getElementById('pa-tel').focus();return;}"
-         . "if(_onSub)_onSub({variant:'A',phone:tel,messenger:aM});"
+         . "var hp=(document.getElementById('pa-hp')||{}).value||'';"
+         . "if(_onSub)_onSub({variant:'A',phone:tel,messenger:aM,email:hp});"
          . "document.getElementById('pa-form-area').innerHTML='{$okQ}';"
          . "setTimeout(hide,3000);});}"
          . "function show(){injectStyles();if(!document.getElementById('pa-overlay'))buildDOM();"
@@ -270,6 +272,7 @@ function generatePopupB(array $c): string {
          . '<button type="button" class="pb-m mx" data-m="mx">' . svgMx(14) . 'Max</button>'
          . '</div>'
          . '<button class="pb-btn" type="submit">' . $c['btn'] . '</button>'
+         . '<input id="pb-hp" type="email" name="email" tabindex="-1" autocomplete="off" style="position:absolute!important;left:-9999px!important;opacity:0!important;height:0!important;pointer-events:none!important;" aria-hidden="true">'
          . '</form>'
          . '<p class="pb-fine">🔒 Без спама. Отписаться в один клик.</p>'
          . '</div></div></div>';
@@ -301,7 +304,8 @@ function generatePopupB(array $c): string {
          . "document.getElementById('pb-form').addEventListener('submit',function(e){"
          . "e.preventDefault();var tel=document.getElementById('pb-tel').value.trim();"
          . "if(!tel){document.getElementById('pb-tel').focus();return;}"
-         . "if(_onSub)_onSub({variant:'B',phone:tel,messenger:aM});"
+         . "var hp=(document.getElementById('pb-hp')||{}).value||'';"
+         . "if(_onSub)_onSub({variant:'B',phone:tel,messenger:aM,email:hp});"
          . "document.getElementById('pb-form-area').innerHTML='{$okQ}';"
          . "setTimeout(hide,3000);});}"
          . "function show(){injectStyles();if(!document.getElementById('pb-overlay'))buildDOM();"
@@ -401,6 +405,7 @@ function generatePopupC(array $c): string {
          . '<button type="button" class="pc-m mx" data-m="mx">' . svgMx(14) . 'Max</button>'
          . '</div>'
          . '<button class="pc-btn" type="submit">' . $c['btn'] . '</button>'
+         . '<input id="pc-hp" type="email" name="email" tabindex="-1" autocomplete="off" style="position:absolute!important;left:-9999px!important;opacity:0!important;height:0!important;pointer-events:none!important;" aria-hidden="true">'
          . '</form>'
          . '<p class="pc-fine">Менеджер свяжется с вами в течение 15 минут</p>'
          . '</div></div></div>';
@@ -432,7 +437,8 @@ function generatePopupC(array $c): string {
          . "document.getElementById('pc-form').addEventListener('submit',function(e){"
          . "e.preventDefault();var tel=document.getElementById('pc-tel').value.trim();"
          . "if(!tel){document.getElementById('pc-tel').focus();return;}"
-         . "if(_onSub)_onSub({variant:'C',phone:tel,messenger:aM});"
+         . "var hp=(document.getElementById('pc-hp')||{}).value||'';"
+         . "if(_onSub)_onSub({variant:'C',phone:tel,messenger:aM,email:hp});"
          . "document.getElementById('pc-form-area').innerHTML='{$okQ}';"
          . "setTimeout(hide,3000);});}"
          . "function show(){injectStyles();if(!document.getElementById('pc-overlay'))buildDOM();"

@@ -180,6 +180,24 @@ if ($action === 'open') {
 
 /* ── action=lead ── */
 if ($action === 'lead') {
+    /* Honeypot: боты заполняют скрытое email-поле */
+    if (!empty($raw['email'])) {
+        echo json_encode(['ok' => false, 'error' => 'bad request']); R::close(); exit;
+    }
+
+    /* CSRF: HMAC по 5-минутному окну ± 2 */
+    $csrfToken = g($raw, '_csrf');
+    $csrfValid = false;
+    $csrfWin   = (int)floor(time() / 300);
+    foreach ([$csrfWin, $csrfWin - 1, $csrfWin - 2] as $w) {
+        if (hash_equals(hash_hmac('sha256', $w . ':' . $key, CSRF_SECRET), $csrfToken)) {
+            $csrfValid = true; break;
+        }
+    }
+    if (!$csrfValid) {
+        echo json_encode(['ok' => false, 'error' => 'invalid token']); R::close(); exit;
+    }
+
     $phone     = g($raw, 'phone');
     $messenger = g($raw, 'messenger');
 
@@ -188,7 +206,11 @@ if ($action === 'lead') {
     }
 
     $cleanPhone = preg_replace('/\D/', '', $phone);
-    if (!$siteId && $domain) $siteId = getSiteId($domain);
+
+    /* Валидация длины телефона */
+    if (strlen($cleanPhone) < 10 || strlen($cleanPhone) > 12) {
+        echo json_encode(['ok' => false, 'error' => 'invalid phone']); R::close(); exit;
+    }
 
     R::exec(
         "INSERT INTO popup_leads (variant, domain, site_id, phone, messenger, ym_client_id, has_ym, url, created_at)

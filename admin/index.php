@@ -15,7 +15,7 @@ if ($postAction === 'create_site') {
     $name   = trim($_POST['name']   ?? '');
     $domain = strtolower(preg_replace('/^www\./i', '', trim($_POST['domain'] ?? '')));
     if (!$name) { echo json_encode(['ok' => false, 'error' => 'Название обязательно']); R::close(); exit; }
-    $apiKey = bin2hex(random_bytes(12));
+    $apiKey = bin2hex(random_bytes(8));
     R::exec(
         "INSERT INTO sites (domain, name, api_key, is_active, created_at, updated_at) VALUES (?,?,?,1,datetime('now','localtime'),datetime('now','localtime'))",
         [$domain, $name, $apiKey]

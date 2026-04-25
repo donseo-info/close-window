@@ -120,7 +120,7 @@ function getSiteId(string $domain): ?int {
     $id = R::getCell('SELECT id FROM sites WHERE domain=?', [$domain]);
     if ($id) return (int)$id;
     R::exec('INSERT OR IGNORE INTO sites (domain, api_key) VALUES (?, ?)',
-            [$domain, bin2hex(random_bytes(16))]);
+            [$domain, bin2hex(random_bytes(8))]);
     $id = R::getCell('SELECT id FROM sites WHERE domain=?', [$domain]);
     return $id ? (int)$id : null;
 }

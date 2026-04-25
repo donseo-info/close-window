@@ -46,6 +46,21 @@ function db_ensure_init() {
         updated_at TEXT,
         PRIMARY KEY (domain, variant)
     )");
+    R::exec("CREATE TABLE IF NOT EXISTS sites (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        domain     TEXT NOT NULL UNIQUE,
+        name       TEXT NOT NULL DEFAULT '',
+        api_key    TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    )");
+    R::exec("CREATE TABLE IF NOT EXISTS site_integrations (
+        id      INTEGER PRIMARY KEY AUTOINCREMENT,
+        site_id INTEGER NOT NULL,
+        type    TEXT NOT NULL,
+        config  TEXT NOT NULL DEFAULT '{}',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(site_id, type)
+    )");
     db_migrate();
     R::freeze(true);
 }
@@ -79,4 +94,23 @@ function db_migrate() {
         R::exec("DROP TABLE popup_config");
         R::exec("ALTER TABLE popup_config_v2 RENAME TO popup_config");
     }
+
+    /* Добавляем site_id в popup_leads, popup_opens, popup_config */
+    foreach (['popup_leads', 'popup_opens', 'popup_config'] as $tbl) {
+        $cols = R::getAll("PRAGMA table_info({$tbl})");
+        if (!array_filter($cols, fn($c) => $c['name'] === 'site_id')) {
+            R::exec("ALTER TABLE {$tbl} ADD COLUMN site_id INTEGER");
+        }
+    }
+}
+
+/* Получить или создать site_id по домену */
+function getSiteId(string $domain): ?int {
+    if (!$domain) return null;
+    $id = R::getCell('SELECT id FROM sites WHERE domain=?', [$domain]);
+    if ($id) return (int)$id;
+    R::exec('INSERT OR IGNORE INTO sites (domain, api_key) VALUES (?, ?)',
+            [$domain, bin2hex(random_bytes(16))]);
+    $id = R::getCell('SELECT id FROM sites WHERE domain=?', [$domain]);
+    return $id ? (int)$id : null;
 }

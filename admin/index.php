@@ -63,6 +63,99 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     exit;
 }
 
+/* ── AJAX: сохранить интеграцию ── */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_integrations') {
+    header('Content-Type: application/json');
+    $domain  = strtolower(preg_replace('/^www\./i', '', trim($_POST['domain'] ?? '')));
+    $type    = trim($_POST['type'] ?? '');
+    $enabled = (int)(bool)($_POST['enabled'] ?? 0);
+    if (!$domain || !in_array($type, ['telegram', 'bitrix24'], true)) {
+        echo json_encode(['ok' => false, 'error' => 'invalid params']); R::close(); exit;
+    }
+    $siteId = getSiteId($domain);
+    if (!$siteId) {
+        echo json_encode(['ok' => false, 'error' => 'site error']); R::close(); exit;
+    }
+    $cfg = [];
+    if ($type === 'telegram') {
+        $cfg = ['tg_token' => trim($_POST['tg_token'] ?? ''), 'tg_chat_id' => trim($_POST['tg_chat_id'] ?? '')];
+    } elseif ($type === 'bitrix24') {
+        $keys = $_POST['cf_key']   ?? [];
+        $vals = $_POST['cf_value'] ?? [];
+        $customFields = [];
+        foreach ($keys as $i => $k) {
+            $k = trim($k); $v = trim($vals[$i] ?? '');
+            if ($k !== '') $customFields[$k] = $v;
+        }
+        $cfg = ['b24_webhook' => trim($_POST['b24_webhook'] ?? ''), 'b24_custom_fields' => $customFields];
+    }
+    $json   = json_encode($cfg, JSON_UNESCAPED_UNICODE);
+    $exists = R::getCell('SELECT COUNT(*) FROM site_integrations WHERE site_id=? AND type=?', [$siteId, $type]);
+    if ($exists) {
+        R::exec('UPDATE site_integrations SET config=?, enabled=? WHERE site_id=? AND type=?',
+                [$json, $enabled, $siteId, $type]);
+    } else {
+        R::exec('INSERT INTO site_integrations (site_id, type, config, enabled) VALUES (?,?,?,?)',
+                [$siteId, $type, $json, $enabled]);
+    }
+    echo json_encode(['ok' => true]);
+    R::close(); exit;
+}
+
+/* ── AJAX: тест Telegram ── */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'test_telegram') {
+    header('Content-Type: application/json');
+    $token  = trim($_POST['tg_token']   ?? '');
+    $chatId = trim($_POST['tg_chat_id'] ?? '');
+    if (!$token || !$chatId) {
+        echo json_encode(['ok' => false, 'error' => 'Токен и Chat ID обязательны']); R::close(); exit;
+    }
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL            => 'https://api.telegram.org/bot' . $token . '/sendMessage',
+        CURLOPT_POST           => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_POSTFIELDS     => ['chat_id' => $chatId, 'text' => '✅ Exit Intent: тестовое сообщение. Интеграция работает!'],
+    ]);
+    $raw = curl_exec($ch);
+    curl_close($ch);
+    $res = json_decode($raw, true);
+    echo json_encode(['ok' => (bool)($res['ok'] ?? false), 'error' => $res['description'] ?? null]);
+    R::close(); exit;
+}
+
+/* ── AJAX: тест Bitrix24 ── */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'test_bitrix24') {
+    header('Content-Type: application/json');
+    $webhook = trim($_POST['b24_webhook'] ?? '');
+    if (!$webhook) {
+        echo json_encode(['ok' => false, 'error' => 'Webhook обязателен']); R::close(); exit;
+    }
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL            => rtrim($webhook, '/') . '/crm.lead.add.json',
+        CURLOPT_POST           => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_POSTFIELDS     => http_build_query(['fields' => [
+            'TITLE'     => 'Exit Intent TEST — тестовый лид',
+            'PHONE'     => [['VALUE' => '+70000000000', 'VALUE_TYPE' => 'WORK']],
+            'SOURCE_ID' => 'WEBFORM',
+            'COMMENTS'  => 'Тестовый лид от Exit Intent.',
+        ]]),
+    ]);
+    $raw = curl_exec($ch);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if ($err) { echo json_encode(['ok' => false, 'error' => $err]); R::close(); exit; }
+    $res = json_decode($raw, true);
+    $ok  = isset($res['result']) && $res['result'];
+    echo json_encode(['ok' => $ok, 'error' => $res['error_description'] ?? null]);
+    R::close(); exit;
+}
+
 /* ── AJAX: сброс статистики ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'clear_stats') {
     header('Content-Type: application/json');
@@ -81,6 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'clear
 $tab          = $_GET['tab']          ?? 'dashboard';
 $domainFilter = trim($_GET['domain_filter'] ?? '');
 $editorDomain = strtolower(preg_replace('/^www\./i', '', trim($_GET['editor_domain'] ?? '')));
+$intDomain    = strtolower(preg_replace('/^www\./i', '', trim($_GET['int_domain']    ?? '')));
 
 /* ── URL проекта (автоопределение) ── */
 $proto    = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -230,6 +324,37 @@ if ($tab === 'leads') {
         array_merge($params, [$perPage, $offset])
     );
 }
+
+/* ── Интеграции (вкладка) ── */
+$integData = [
+    'telegram' => ['config' => [], 'enabled' => 0],
+    'bitrix24' => ['config' => [], 'enabled' => 0],
+];
+if ($tab === 'integrations' && $intDomain) {
+    $intSiteId = R::getCell('SELECT id FROM sites WHERE domain=?', [$intDomain]);
+    if ($intSiteId) {
+        $rows = R::getAll('SELECT type, config, enabled FROM site_integrations WHERE site_id=?', [$intSiteId]);
+        foreach ($rows as $row) {
+            $integData[$row['type']] = [
+                'config'  => json_decode($row['config'], true) ?: [],
+                'enabled' => (int)$row['enabled'],
+            ];
+        }
+    }
+}
+
+/* Все известные домены для селектора интеграций */
+$allDomains = array_column(R::getAll(
+    "SELECT DISTINCT domain FROM (
+        SELECT domain FROM popup_opens  WHERE domain != ''
+        UNION
+        SELECT domain FROM popup_leads  WHERE domain != ''
+        UNION
+        SELECT domain FROM sites        WHERE domain != ''
+        UNION
+        SELECT domain FROM popup_config WHERE domain != ''
+     ) t ORDER BY domain"
+), 'domain');
 
 R::close();
 
@@ -391,6 +516,11 @@ function domainBadge($d) {
     <li class="nav-item">
       <a class="nav-link <?= activeTab('popups',$tab) ?>" href="?tab=popups">
         <i class="bi bi-pencil-square"></i> Попапы
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link <?= activeTab('integrations',$tab) ?>" href="?tab=integrations">
+        <i class="bi bi-plug"></i> Интеграции
       </a>
     </li>
   </ul>
@@ -1220,6 +1350,166 @@ function domainBadge($d) {
     <?php endforeach ?>
   </div>
 
+<?php elseif ($tab === 'integrations'): ?>
+
+  <!-- ── Вкладка: интеграции ── -->
+  <div class="d-flex align-items-start justify-content-between mb-4">
+    <div>
+      <div style="font-size:16px;font-weight:700;color:#0f172a">Интеграции</div>
+      <div style="font-size:12px;color:#94a3b8">Telegram-уведомления и Bitrix24 CRM — настройка per-домен</div>
+    </div>
+  </div>
+
+  <!-- Выбор домена -->
+  <div class="chart-wrap mb-4" style="padding:16px 20px">
+    <div class="d-flex flex-wrap align-items-center gap-3">
+      <div style="font-weight:600;font-size:13px;color:#0f172a;white-space:nowrap">
+        <i class="bi bi-globe2 me-1 text-primary"></i> Домен:
+      </div>
+      <form method="get" class="d-flex gap-2 align-items-center flex-wrap">
+        <input type="hidden" name="tab" value="integrations">
+        <select name="int_domain" class="form-select form-select-sm" style="max-width:260px"
+                onchange="this.form.submit()">
+          <option value="">— Выберите домен —</option>
+          <?php foreach ($allDomains as $ad): ?>
+            <option value="<?= esc($ad) ?>" <?= $intDomain===$ad?'selected':'' ?>><?= esc($ad) ?></option>
+          <?php endforeach ?>
+        </select>
+        <div style="font-size:11px;color:#94a3b8">или введите вручную:</div>
+        <div class="input-group input-group-sm" style="max-width:200px">
+          <span class="input-group-text" style="font-size:11px">domain.ru</span>
+          <input type="text" class="form-control" id="int-manual-domain"
+                 placeholder="example.com" style="font-size:12px">
+          <button class="btn btn-outline-secondary" type="button" onclick="applyIntDomain()">→</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <?php if (!$intDomain): ?>
+    <div class="empty-state">
+      <i class="bi bi-plug"></i>
+      <p>Выберите домен выше, чтобы настроить интеграции для него.</p>
+    </div>
+  <?php else: ?>
+
+  <?php
+    $tgCfg  = $integData['telegram']['config'];
+    $tgOn   = $integData['telegram']['enabled'];
+    $b24Cfg = $integData['bitrix24']['config'];
+    $b24On  = $integData['bitrix24']['enabled'];
+    $b24CustomFields = $b24Cfg['b24_custom_fields'] ?? [];
+  ?>
+
+  <div id="int-alert" class="alert d-none mb-3" role="alert" style="font-size:13px"></div>
+
+  <div class="row g-3">
+
+    <!-- ── Telegram ── -->
+    <div class="col-12 col-lg-6">
+      <div class="chart-wrap h-100" style="border-top:3px solid #0088cc">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <div style="font-size:20px;color:#0088cc"><i class="bi bi-telegram"></i></div>
+          <div>
+            <div style="font-weight:700;font-size:14px">Telegram</div>
+            <div style="font-size:11px;color:#94a3b8">Уведомления при каждой заявке</div>
+          </div>
+          <div class="ms-auto">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="tg-enabled"
+                     <?= $tgOn ? 'checked' : '' ?>>
+              <label class="form-check-label" for="tg-enabled" style="font-size:12px">Включено</label>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" style="font-size:12px;font-weight:600">Bot Token</label>
+          <input type="text" id="tg-token" class="form-control form-control-sm"
+                 placeholder="123456789:ABCdef..."
+                 value="<?= esc($tgCfg['tg_token'] ?? '') ?>">
+          <div class="form-text" style="font-size:11px">Получить у @BotFather</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" style="font-size:12px;font-weight:600">Chat ID</label>
+          <input type="text" id="tg-chat-id" class="form-control form-control-sm"
+                 placeholder="-100123456789 или @username"
+                 value="<?= esc($tgCfg['tg_chat_id'] ?? '') ?>">
+          <div class="form-text" style="font-size:11px">ID чата/канала/группы</div>
+        </div>
+        <div class="d-flex gap-2 mt-auto">
+          <button class="btn btn-sm btn-outline-secondary" onclick="testTelegram(this)">
+            <i class="bi bi-send me-1"></i> Тест
+          </button>
+          <button class="btn btn-sm btn-primary ms-auto" onclick="saveIntegration('telegram', this)">
+            <i class="bi bi-check2 me-1"></i> Сохранить
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Bitrix24 ── -->
+    <div class="col-12 col-lg-6">
+      <div class="chart-wrap h-100" style="border-top:3px solid #ff5c5c">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <div style="font-size:20px;color:#ff5c5c"><i class="bi bi-briefcase"></i></div>
+          <div>
+            <div style="font-weight:700;font-size:14px">Bitrix24</div>
+            <div style="font-size:11px;color:#94a3b8">Создание лидов в CRM</div>
+          </div>
+          <div class="ms-auto">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="b24-enabled"
+                     <?= $b24On ? 'checked' : '' ?>>
+              <label class="form-check-label" for="b24-enabled" style="font-size:12px">Включено</label>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" style="font-size:12px;font-weight:600">Webhook URL</label>
+          <input type="text" id="b24-webhook" class="form-control form-control-sm"
+                 placeholder="https://b24-xxx.bitrix24.ru/rest/1/TOKEN/"
+                 value="<?= esc($b24Cfg['b24_webhook'] ?? '') ?>">
+        </div>
+        <div class="mb-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <label class="form-label mb-0" style="font-size:12px;font-weight:600">
+              Кастомные поля CRM
+            </label>
+            <button class="btn btn-xs btn-outline-secondary" style="font-size:11px;padding:2px 8px"
+                    onclick="addCfRow()">+ поле</button>
+          </div>
+          <div id="cf-rows">
+            <?php foreach ($b24CustomFields as $cfk => $cfv): ?>
+            <div class="d-flex gap-1 mb-1 cf-row">
+              <input class="form-control form-control-sm" name="cf_key[]"
+                     placeholder="UF_CRM_..." value="<?= esc($cfk) ?>" style="font-size:12px">
+              <input class="form-control form-control-sm" name="cf_value[]"
+                     placeholder="значение или {{macro}}" value="<?= esc($cfv) ?>" style="font-size:12px">
+              <button type="button" class="btn btn-sm btn-outline-danger"
+                      style="padding:2px 6px" onclick="this.closest('.cf-row').remove()">✕</button>
+            </div>
+            <?php endforeach ?>
+          </div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:6px">
+            Макросы: <code>{{phone}}</code> <code>{{page_url}}</code> <code>{{ym_client_id}}</code>
+            <code>{{messenger}}</code> <code>{{ip}}</code>
+            <code>{{utm_source}}</code> <code>{{utm_medium}}</code> <code>{{utm_campaign}}</code>
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-auto">
+          <button class="btn btn-sm btn-outline-secondary" onclick="testBitrix24(this)">
+            <i class="bi bi-send me-1"></i> Тест
+          </button>
+          <button class="btn btn-sm btn-primary ms-auto" onclick="saveIntegration('bitrix24', this)">
+            <i class="bi bi-check2 me-1"></i> Сохранить
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /row -->
+  <?php endif ?>
+
 <?php endif ?>
 
 </div><!-- /container -->
@@ -1280,6 +1570,100 @@ document.querySelectorAll('.copy-btn').forEach(function(btn){
     });
   });
 });
+
+/* ── Интеграции ── */
+function applyIntDomain() {
+  var inp = document.getElementById('int-manual-domain');
+  if (!inp || !inp.value.trim()) return;
+  var d = inp.value.trim().replace(/^www\./i, '').toLowerCase();
+  var url = new URL(window.location.href);
+  url.searchParams.set('tab', 'integrations');
+  url.searchParams.set('int_domain', d);
+  window.location.href = url.toString();
+}
+document.getElementById('int-manual-domain')?.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); applyIntDomain(); }
+});
+
+function intAlert(msg, ok) {
+  var el = document.getElementById('int-alert');
+  if (!el) return;
+  el.className = 'alert mb-3 ' + (ok ? 'alert-success' : 'alert-danger');
+  el.textContent = msg;
+  el.classList.remove('d-none');
+  setTimeout(function() { el.classList.add('d-none'); }, 4000);
+}
+
+function saveIntegration(type, btn) {
+  var orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  var fd = new FormData();
+  fd.append('action', 'save_integrations');
+  fd.append('domain', '<?= esc($intDomain) ?>');
+  fd.append('type', type);
+  if (type === 'telegram') {
+    fd.append('enabled', document.getElementById('tg-enabled').checked ? '1' : '0');
+    fd.append('tg_token',   document.getElementById('tg-token').value.trim());
+    fd.append('tg_chat_id', document.getElementById('tg-chat-id').value.trim());
+  } else {
+    fd.append('enabled', document.getElementById('b24-enabled').checked ? '1' : '0');
+    fd.append('b24_webhook', document.getElementById('b24-webhook').value.trim());
+    document.querySelectorAll('.cf-row').forEach(function(row) {
+      fd.append('cf_key[]',   row.querySelector('[name="cf_key[]"]').value.trim());
+      fd.append('cf_value[]', row.querySelector('[name="cf_value[]"]').value.trim());
+    });
+  }
+  fetch(window.location.pathname, { method: 'POST', body: fd })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      btn.disabled = false; btn.innerHTML = orig;
+      intAlert(d.ok ? 'Сохранено!' : ('Ошибка: ' + (d.error || '?')), d.ok);
+    })
+    .catch(function() { btn.disabled = false; btn.innerHTML = orig; intAlert('Ошибка сети', false); });
+}
+
+function testTelegram(btn) {
+  var orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  var fd = new FormData();
+  fd.append('action', 'test_telegram');
+  fd.append('tg_token',   document.getElementById('tg-token').value.trim());
+  fd.append('tg_chat_id', document.getElementById('tg-chat-id').value.trim());
+  fetch(window.location.pathname, { method: 'POST', body: fd })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      btn.disabled = false; btn.innerHTML = orig;
+      intAlert(d.ok ? '✅ Сообщение отправлено!' : ('❌ ' + (d.error || 'Ошибка')), d.ok);
+    })
+    .catch(function() { btn.disabled = false; btn.innerHTML = orig; intAlert('Ошибка сети', false); });
+}
+
+function testBitrix24(btn) {
+  var orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  var fd = new FormData();
+  fd.append('action', 'test_bitrix24');
+  fd.append('b24_webhook', document.getElementById('b24-webhook').value.trim());
+  fetch(window.location.pathname, { method: 'POST', body: fd })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      btn.disabled = false; btn.innerHTML = orig;
+      intAlert(d.ok ? '✅ Тестовый лид создан в Bitrix24!' : ('❌ ' + (d.error || 'Ошибка')), d.ok);
+    })
+    .catch(function() { btn.disabled = false; btn.innerHTML = orig; intAlert('Ошибка сети', false); });
+}
+
+function addCfRow(key, val) {
+  var row = document.createElement('div');
+  row.className = 'd-flex gap-1 mb-1 cf-row';
+  row.innerHTML = '<input class="form-control form-control-sm" name="cf_key[]" placeholder="UF_CRM_..." value="' + (key||'') + '" style="font-size:12px">'
+    + '<input class="form-control form-control-sm" name="cf_value[]" placeholder="значение или {{macro}}" value="' + (val||'') + '" style="font-size:12px">'
+    + '<button type="button" class="btn btn-sm btn-outline-danger" style="padding:2px 6px" onclick="this.closest(\'.cf-row\').remove()">✕</button>';
+  document.getElementById('cf-rows').appendChild(row);
+}
 
 /* Сброс статистики */
 var btnClear = document.getElementById('btn-clear');

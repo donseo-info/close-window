@@ -217,16 +217,16 @@ if ($siteId) {
     $perPage = 20; $page = max(1, (int)($_GET['page'] ?? 1)); $offset = ($page - 1) * $perPage;
 
     if ($tab === 'stats') {
-        $totalOpens    = (int)R::getCell('SELECT COUNT(*) FROM popup_opens WHERE site_id=? AND has_ym=1', [$siteId]);
-        $totalLeads    = (int)R::getCell('SELECT COUNT(*) FROM popup_leads WHERE site_id=? AND has_ym=1', [$siteId]);
-        $totalLeadsAll = (int)R::getCell('SELECT COUNT(*) FROM popup_leads WHERE site_id=?', [$siteId]);
-        $totalLeadsNoYm = $totalLeadsAll - $totalLeads;
+        $totalOpens    = (int)R::getCell('SELECT COUNT(*) FROM popup_opens WHERE site_id=?', [$siteId]);
+        $totalLeads    = (int)R::getCell('SELECT COUNT(*) FROM popup_leads WHERE site_id=?', [$siteId]);
+        $totalLeadsAll = $totalLeads;
+        $totalLeadsNoYm = (int)R::getCell('SELECT COUNT(*) FROM popup_leads WHERE site_id=? AND has_ym=0', [$siteId]);
         $convRate      = $totalOpens > 0 ? round($totalLeads / $totalOpens * 100, 1) : 0;
-        $opensToday    = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE site_id=? AND has_ym=1 AND DATE(created_at)=?", [$siteId, $today]);
-        $leadsToday    = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE site_id=? AND has_ym=1 AND DATE(created_at)=?", [$siteId, $today]);
+        $opensToday    = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE site_id=? AND DATE(created_at)=?", [$siteId, $today]);
+        $leadsToday    = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE site_id=? AND DATE(created_at)=?", [$siteId, $today]);
         foreach (['A','B','C'] as $v) {
-            $opens = (int)R::getCell('SELECT COUNT(*) FROM popup_opens WHERE site_id=? AND variant=? AND has_ym=1', [$siteId, $v]);
-            $leads = (int)R::getCell('SELECT COUNT(*) FROM popup_leads WHERE site_id=? AND variant=? AND has_ym=1', [$siteId, $v]);
+            $opens = (int)R::getCell('SELECT COUNT(*) FROM popup_opens WHERE site_id=? AND variant=?', [$siteId, $v]);
+            $leads = (int)R::getCell('SELECT COUNT(*) FROM popup_leads WHERE site_id=? AND variant=?', [$siteId, $v]);
             $lnym  = (int)R::getCell('SELECT COUNT(*) FROM popup_leads WHERE site_id=? AND variant=? AND has_ym=0', [$siteId, $v]);
             $variantStats[$v] = ['opens' => $opens, 'leads' => $leads, 'leads_noym' => $lnym,
                 'conv' => $opens > 0 ? round($leads / $opens * 100, 1) : 0];
@@ -234,8 +234,8 @@ if ($siteId) {
         for ($i = 6; $i >= 0; $i--) {
             $d = date('Y-m-d', strtotime("-{$i} days"));
             $chartDays[]  = date('d.m', strtotime($d));
-            $chartOpens[] = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE site_id=? AND has_ym=1 AND DATE(created_at)=?", [$siteId, $d]);
-            $chartLeads[] = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE site_id=? AND has_ym=1 AND DATE(created_at)=?", [$siteId, $d]);
+            $chartOpens[] = (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE site_id=? AND DATE(created_at)=?", [$siteId, $d]);
+            $chartLeads[] = (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE site_id=? AND DATE(created_at)=?", [$siteId, $d]);
         }
         $leadTotal = (int)R::getCell('SELECT COUNT(*) FROM popup_leads WHERE site_id=?', [$siteId]);
         $leadPages = max(1, (int)ceil($leadTotal / $perPage));

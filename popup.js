@@ -205,15 +205,12 @@
           }
         });
 
-        /* Уведомление об открытии — только если ym есть */
-        if (hasYm) {
-          sendEvent({
-            action:       'open',
-            variant:      variant,
-            ym_client_id: ymId,
-            has_ym:       1
-          });
-        }
+        sendEvent({
+          action:       'open',
+          variant:      variant,
+          ym_client_id: ymId,
+          has_ym:       hasYm
+        });
 
         /* Цель «показ попапа» в Яндекс.Метрику */
         var goalOpen = window._EI_ym && window._EI_ym.goal_open;

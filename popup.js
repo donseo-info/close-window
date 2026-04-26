@@ -187,6 +187,9 @@
       loadPopupScript(variant, function (popup) {
         if (!popup) return;
 
+        /* ID счётчика: из админки (_EI_counter инжектируется popup.php) или из тега */
+        var cid = window._EI_counter || counterId;
+
         popup.onSubmit(function (data) {
           sendEvent({
             action:       'lead',
@@ -200,8 +203,8 @@
           });
           /* Цель «лид» в Яндекс.Метрику — только если ещё не отправляли (кука 30 дней) */
           var goalLead = window._EI_ym && window._EI_ym.goal_lead;
-          if (goalLead && counterId && window.ym && !document.cookie.match(/_ei_sent=1/)) {
-            try { ym(counterId, 'reachGoal', goalLead); } catch (e) {}
+          if (goalLead && cid && window.ym && !document.cookie.match(/_ei_sent=1/)) {
+            try { ym(cid, 'reachGoal', goalLead); } catch (e) {}
             var exp = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
             document.cookie = '_ei_sent=1;path=/;expires=' + exp + ';SameSite=Lax';
           }
@@ -216,8 +219,8 @@
 
         /* Цель «показ попапа» в Яндекс.Метрику */
         var goalOpen = window._EI_ym && window._EI_ym.goal_open;
-        if (goalOpen && counterId && window.ym) {
-          try { ym(counterId, 'reachGoal', goalOpen); } catch (e) {}
+        if (goalOpen && cid && window.ym) {
+          try { ym(cid, 'reachGoal', goalOpen); } catch (e) {}
         }
 
         popup.show();

@@ -125,7 +125,11 @@ if ($postAction === 'save_integrations') {
         foreach ($keys as $i => $k) { $k = trim($k); $v = trim($vals[$i] ?? ''); if ($k !== '') $cf[$k] = $v; }
         $cfg = ['b24_webhook' => trim($_POST['b24_webhook'] ?? ''), 'b24_custom_fields' => $cf];
     } elseif ($type === 'yandex_metrika') {
-        $cfg = ['goal_open' => trim($_POST['ym_goal_open'] ?? ''), 'goal_lead' => trim($_POST['ym_goal_lead'] ?? '')];
+        $cfg = [
+            'counter_id' => preg_replace('/[^0-9]/', '', $_POST['ym_counter_id'] ?? ''),
+            'goal_open'  => trim($_POST['ym_goal_open'] ?? ''),
+            'goal_lead'  => trim($_POST['ym_goal_lead'] ?? ''),
+        ];
     }
     $json   = json_encode($cfg, JSON_UNESCAPED_UNICODE);
     $exists = R::getCell('SELECT COUNT(*) FROM site_integrations WHERE site_id=? AND type=?', [$siteId, $type]);
@@ -696,6 +700,11 @@ function variantBadge($v) {
           </div></div>
         </div>
         <div class="mb-3">
+          <label class="form-label" style="font-size:12px;font-weight:600">ID счётчика Яндекс.Метрики</label>
+          <input type="text" id="ym-counter-id" class="form-control form-control-sm" placeholder="12345678 (необязательно)" value="<?= esc($ymCfg['counter_id']??'') ?>">
+          <div class="form-text" style="font-size:11px">Если задан — переопределяет ID из кода установки виджета</div>
+        </div>
+        <div class="mb-3">
           <label class="form-label" style="font-size:12px;font-weight:600">Цель при показе попапа</label>
           <input type="text" id="ym-goal-open" class="form-control form-control-sm" placeholder="exitintent_open" value="<?= esc($ymCfg['goal_open']??'') ?>">
           <div class="form-text" style="font-size:11px">Срабатывает когда попап открылся</div>
@@ -705,7 +714,7 @@ function variantBadge($v) {
           <input type="text" id="ym-goal-lead" class="form-control form-control-sm" placeholder="exitintent_lead" value="<?= esc($ymCfg['goal_lead']??'') ?>">
           <div class="form-text" style="font-size:11px">Срабатывает после успешной отправки формы</div>
         </div>
-        <div class="form-text mb-3" style="font-size:11px">Цели вызываются через <code>ym(id, 'reachGoal', ...)</code> напрямую в браузере. ID счётчика берётся из кода установки виджета.</div>
+        <div class="form-text mb-3" style="font-size:11px">Цели вызываются через <code>ym(id, 'reachGoal', ...)</code> напрямую в браузере.</div>
         <div class="d-flex gap-2">
           <button class="btn btn-sm btn-primary ms-auto" onclick="saveIntegration('yandex_metrika',this)"><i class="bi bi-check2 me-1"></i>Сохранить</button>
         </div>
@@ -920,6 +929,7 @@ function saveIntegration(type, btn) {
     });
   } else if (type === 'yandex_metrika') {
     fd.append('enabled', document.getElementById('ym-enabled').checked ? '1' : '0');
+    fd.append('ym_counter_id', document.getElementById('ym-counter-id').value.trim());
     fd.append('ym_goal_open', document.getElementById('ym-goal-open').value.trim());
     fd.append('ym_goal_lead', document.getElementById('ym-goal-lead').value.trim());
   }

@@ -53,7 +53,8 @@ if (!$row) {
 }
 
 /* Цели Яндекс.Метрики для этого сайта */
-$ymGoals = ['goal_open' => '', 'goal_lead' => ''];
+$ymGoals     = ['goal_open' => '', 'goal_lead' => ''];
+$ymCounterId = '';
 if ($siteId) {
     $ymRow = R::getRow(
         "SELECT config FROM site_integrations WHERE site_id=? AND type='yandex_metrika' AND enabled=1",
@@ -63,6 +64,7 @@ if ($siteId) {
         $ymCfg = json_decode($ymRow['config'], true) ?: [];
         $ymGoals['goal_open'] = trim($ymCfg['goal_open'] ?? '');
         $ymGoals['goal_lead'] = trim($ymCfg['goal_lead'] ?? '');
+        $ymCounterId          = trim($ymCfg['counter_id'] ?? '');
     }
 }
 
@@ -86,6 +88,10 @@ echo "window._EI_csrf='" . $csrfToken . "';\n";
 /* Вшиваем цели ЯМ — popup.js прочитает их из window._EI_ym */
 if ($ymGoals['goal_open'] !== '' || $ymGoals['goal_lead'] !== '') {
     echo 'window._EI_ym=' . json_encode($ymGoals, JSON_UNESCAPED_UNICODE) . ';' . "\n";
+}
+/* Если в админке задан ID счётчика — он переопределяет data-counter из тега */
+if ($ymCounterId !== '') {
+    echo "window._EI_counter='" . preg_replace('/[^0-9]/', '', $ymCounterId) . "';\n";
 }
 
 $fn = 'generatePopup' . $variant;

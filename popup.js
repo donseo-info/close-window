@@ -198,10 +198,12 @@
             email:        data.email     || '',
             _csrf:        window._EI_csrf || ''
           });
-          /* Цель «лид» в Яндекс.Метрику */
+          /* Цель «лид» в Яндекс.Метрику — только если ещё не отправляли (кука 30 дней) */
           var goalLead = window._EI_ym && window._EI_ym.goal_lead;
-          if (goalLead && counterId && window.ym) {
+          if (goalLead && counterId && window.ym && !document.cookie.match(/_ei_sent=1/)) {
             try { ym(counterId, 'reachGoal', goalLead); } catch (e) {}
+            var exp = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
+            document.cookie = '_ei_sent=1;path=/;expires=' + exp + ';SameSite=Lax';
           }
         });
 

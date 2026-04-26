@@ -441,7 +441,7 @@ function variantBadge($v) {
   <div class="section-title">Последние заявки</div>
   <div class="card border-0 ct-table mb-3">
     <table class="table table-hover mb-0 ct-table">
-      <thead><tr><th>#</th><th>Дата</th><th>Вариант</th><th>Телефон</th><th>Мессенджер</th><th>YM ClientID</th><th>Метрика</th></tr></thead>
+      <thead><tr><th>#</th><th>Дата</th><th>Вариант</th><th>Телефон</th><th>Мессенджер</th><th>Страница</th><th>YM ClientID</th><th>Метрика</th></tr></thead>
       <tbody>
       <?php foreach($leadRows as $r): ?>
       <tr>
@@ -450,6 +450,11 @@ function variantBadge($v) {
         <td><?= variantBadge($r['variant']) ?></td>
         <td class="fw-semibold"><?= fmtPhone($r['phone']) ?></td>
         <td><?= messengerBadge($r['messenger']) ?></td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          <?php if (!empty($r['url'])): $urlShort = preg_replace('#^https?://#', '', $r['url']); ?>
+            <a href="<?= esc($r['url']) ?>" target="_blank" rel="noopener" title="<?= esc($r['url']) ?>" style="font-size:11px;color:#3b82f6"><?= esc($urlShort) ?></a>
+          <?php else: ?><span class="text-muted">—</span><?php endif ?>
+        </td>
         <td><?= $r['ym_client_id'] ? '<code style="font-size:11px">'.esc($r['ym_client_id']).'</code>' : '<span class="text-muted">—</span>' ?></td>
         <td><?= $r['has_ym'] ? '<span class="badge bg-success" style="font-size:10px">✓</span>' : '<span class="badge bg-secondary" style="font-size:10px">нет</span>' ?></td>
       </tr>

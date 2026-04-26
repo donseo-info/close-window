@@ -15,7 +15,7 @@ require_once dirname(__DIR__) . '/admin/generator.php';
 
 header('Access-Control-Allow-Origin: *');
 header('Content-Type: application/javascript; charset=utf-8');
-header('Cache-Control: public, max-age=300'); /* 5 минут */
+header('Cache-Control: no-store');
 
 $variant = strtoupper(trim($_GET['variant'] ?? ''));
 if (!in_array($variant, ['A', 'B', 'C'], true)) {

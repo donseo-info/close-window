@@ -507,18 +507,14 @@ function updateLoaderVariants(array $enabled): ?string {
         if ($new !== null && $new !== $src) file_put_contents($jsFile, $new);
     }
 
-    /* popup.min.js: var m=["A","B","C"] (терser переименовал VARIANTS → m) */
+    /* popup.min.js: var VARIANTS=['A','B','C'] */
     $minFile = $root . '/popup.min.js';
     if (!file_exists($minFile)) return 'popup.min.js не найден';
     if (!is_writable($minFile)) return 'popup.min.js недоступен для записи';
-    $arr  = count($enabled) ? '"' . implode('","', $enabled) . '"' : '';
-    $repl = 'var m=[' . $arr . ']';
+    $arr  = count($enabled) ? "'" . implode("','", $enabled) . "'" : '';
+    $repl = "var VARIANTS=[{$arr}]";
     $src  = file_get_contents($minFile);
-    $new  = preg_replace('/var m=\["[A-C]"(?:,"[A-C]")*\]/', $repl, $src);
-    if ($new === null || $new === $src) {
-        /* Запасной вариант: ищем пустой массив тоже */
-        $new = preg_replace('/var m=\[[^\]]*\](?=,f=)/', $repl, $src);
-    }
+    $new  = preg_replace("/var VARIANTS=\['[A-C]'(?:,'[A-C]')*\]/", $repl, $src);
     if ($new && $new !== $src) file_put_contents($minFile, $new);
     return null;
 }

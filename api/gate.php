@@ -149,23 +149,33 @@ $key      = g($raw, 'key');
 
 /* Определяем сайт по api_key — без key запрос отклоняется */
 if (!$key) {
+    gate_log('REJECT', 'key required', ['action' => $action, 'ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
     echo json_encode(['ok' => false, 'error' => 'key required']); R::close(); exit;
 }
 $siteRow = R::getRow('SELECT id, domain FROM sites WHERE api_key=? AND is_active=1', [$key]);
 if (!$siteRow) {
+    gate_log('REJECT', 'site not found', ['key' => $key, 'action' => $action]);
     echo json_encode(['ok' => false, 'error' => 'site not found']); R::close(); exit;
 }
 $domain = $siteRow['domain'];
 $siteId = (int)$siteRow['id'];
 
 if (!in_array($variant, ['A', 'B', 'C'], true)) {
+    gate_log('REJECT', 'bad variant', ['variant' => $variant]);
     echo json_encode(['ok' => false, 'error' => 'bad variant']); R::close(); exit;
+}
+
+function gate_log(string $level, string $msg, array $ctx = []): void {
+    $logDir = dirname(__DIR__) . '/db';
+    if (!is_dir($logDir)) return;
+    $line = '[' . date('Y-m-d H:i:s') . '] [' . $level . '] ' . $msg;
+    if ($ctx) $line .= ' | ' . json_encode($ctx, JSON_UNESCAPED_UNICODE);
+    @file_put_contents($logDir . '/gate.log', $line . PHP_EOL, FILE_APPEND | LOCK_EX);
 }
 
 /* ── action=open ── */
 if ($action === 'open') {
-    /* Если сайт не найден по key, регистрируем/ищем по домену */
-    if (!$siteId && $domain) $siteId = getSiteId($domain);
+    gate_log('INFO', 'open', ['variant' => $variant, 'site_id' => $siteId, 'ym' => $ymId]);
 
     /* Дедупликация: не пишем если в эту минуту уже есть открытие с тем же ym_client_id */
     if ($ymId) {
@@ -190,21 +200,25 @@ if ($action === 'open') {
 
 /* ── action=lead ── */
 if ($action === 'lead') {
+    gate_log('INFO', 'lead attempt', ['variant' => $variant, 'site_id' => $siteId]);
+
     /* Honeypot: боты заполняют скрытое email-поле */
     if (!empty($raw['email'])) {
+        gate_log('REJECT', 'honeypot triggered', ['email' => $raw['email']]);
         echo json_encode(['ok' => false, 'error' => 'bad request']); R::close(); exit;
     }
 
-    /* CSRF: HMAC по 5-минутному окну ± 2 */
+    /* CSRF: HMAC по 5-минутному окну ± 5 (25 минут на отправку) */
     $csrfToken = g($raw, '_csrf');
     $csrfValid = false;
     $csrfWin   = (int)floor(time() / 300);
-    foreach ([$csrfWin, $csrfWin - 1, $csrfWin - 2] as $w) {
+    foreach ([$csrfWin, $csrfWin - 1, $csrfWin - 2, $csrfWin - 3, $csrfWin - 4, $csrfWin - 5] as $w) {
         if (hash_equals(hash_hmac('sha256', $w . ':' . $key, CSRF_SECRET), $csrfToken)) {
             $csrfValid = true; break;
         }
     }
     if (!$csrfValid) {
+        gate_log('REJECT', 'invalid csrf', ['token_len' => strlen($csrfToken), 'win' => $csrfWin]);
         echo json_encode(['ok' => false, 'error' => 'invalid token']); R::close(); exit;
     }
 
@@ -212,6 +226,7 @@ if ($action === 'lead') {
     $messenger = g($raw, 'messenger');
 
     if (!$phone) {
+        gate_log('REJECT', 'phone required');
         echo json_encode(['ok' => false, 'error' => 'phone required']); R::close(); exit;
     }
 
@@ -219,6 +234,7 @@ if ($action === 'lead') {
 
     /* Валидация длины телефона */
     if (strlen($cleanPhone) < 10 || strlen($cleanPhone) > 12) {
+        gate_log('REJECT', 'invalid phone', ['raw' => $phone, 'clean' => $cleanPhone, 'len' => strlen($cleanPhone)]);
         echo json_encode(['ok' => false, 'error' => 'invalid phone']); R::close(); exit;
     }
 
@@ -254,9 +270,11 @@ if ($action === 'lead') {
         }
     }
 
+    gate_log('OK', 'lead saved', ['id' => $id, 'variant' => $variant, 'site_id' => $siteId]);
     echo json_encode(['ok' => true, 'id' => (int)$id]);
     R::close(); exit;
 }
 
+gate_log('REJECT', 'unknown action', ['action' => $action]);
 echo json_encode(['ok' => false, 'error' => 'unknown action']);
 R::close();

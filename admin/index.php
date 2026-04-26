@@ -378,7 +378,7 @@ function variantBadge($v) {
     <div class="col-6 col-md-3"><div class="stat-card">
       <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-person-check"></i></div>
       <div class="stat-val"><?= $totalLeads ?></div>
-      <div class="stat-label">Заявок (с Метрикой)</div>
+      <div class="stat-label">Заявок (всего)</div>
       <div class="stat-sub">Сегодня: <?= $leadsToday ?></div>
     </div></div>
     <div class="col-6 col-md-3"><div class="stat-card">

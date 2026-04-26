@@ -154,12 +154,24 @@ if ($postAction === 'test_bitrix24') {
     header('Content-Type: application/json');
     $webhook = trim($_POST['b24_webhook'] ?? '');
     if (!$webhook) { echo json_encode(['ok' => false, 'error' => 'Webhook обязателен']); R::close(); exit; }
+    /* Собираем кастомные поля из формы (с тест-значениями вместо макросов) */
+    $testMacros = ['{{phone}}'=>'+70000000000','{{page_url}}'=>'https://test.example.com','{{ym_client_id}}'=>'test123','{{messenger}}'=>'tg','{{ip}}'=>'127.0.0.1','{{utm_source}}'=>'test','{{utm_medium}}'=>'','{{utm_campaign}}'=>'','{{utm_content}}'=>'','{{utm_term}}'=>''];
+    $cfKeys = $_POST['cf_key'] ?? []; $cfVals = $_POST['cf_value'] ?? [];
+    $customFields = [];
+    foreach ($cfKeys as $i => $k) { $k = trim($k); $v = trim($cfVals[$i] ?? ''); if ($k !== '') $customFields[$k] = str_replace(array_keys($testMacros), array_values($testMacros), $v); }
+    $fields = array_merge([
+        'TITLE'     => 'Exit Intent TEST',
+        'PHONE'     => [['VALUE' => '+70000000000', 'VALUE_TYPE' => 'WORK']],
+        'SOURCE_ID' => 'WEBFORM',
+        'COMMENTS'  => 'Тестовый лид из админки',
+    ], $customFields);
     $ch = curl_init();
-    curl_setopt_array($ch, [CURLOPT_URL => rtrim($webhook,'/').'/crm.lead.add.json', CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_SSL_VERIFYPEER => false, CURLOPT_POSTFIELDS => http_build_query(['fields' => ['TITLE' => 'Exit Intent TEST', 'PHONE' => [['VALUE' => '+70000000000', 'VALUE_TYPE' => 'WORK']], 'SOURCE_ID' => 'WEBFORM']])]);
+    curl_setopt_array($ch, [CURLOPT_URL => rtrim($webhook,'/').'/crm.lead.add.json', CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_SSL_VERIFYPEER => false, CURLOPT_POSTFIELDS => http_build_query(['fields' => $fields])]);
     $raw = curl_exec($ch); $err = curl_error($ch); curl_close($ch);
     if ($err) { echo json_encode(['ok' => false, 'error' => $err]); R::close(); exit; }
     $res = json_decode($raw, true);
-    echo json_encode(['ok' => isset($res['result']) && $res['result'], 'error' => $res['error_description'] ?? null]);
+    $ok = isset($res['result']) && $res['result'];
+    echo json_encode(['ok' => $ok, 'error' => $res['error_description'] ?? ($res['error'] ?? null), 'b24_response' => $res]);
     R::close(); exit;
 }
 
@@ -924,9 +936,19 @@ function testBitrix24(btn) {
   var orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<span class="spinner-border spinner-border-sm"></span>';
   var fd=new FormData(); fd.append('action','test_bitrix24');
   fd.append('b24_webhook', document.getElementById('b24-webhook').value.trim());
+  document.querySelectorAll('.cf-row').forEach(function(row){
+    fd.append('cf_key[]', row.querySelector('[name="cf_key[]"]').value.trim());
+    fd.append('cf_value[]', row.querySelector('[name="cf_value[]"]').value.trim());
+  });
   fetch(window.location.pathname,{method:'POST',body:fd}).then(r=>r.json()).then(d=>{
     btn.disabled=false; btn.innerHTML=orig;
-    intAlert(d.ok?'✅ Тестовый лид создан в Bitrix24!':'❌ '+(d.error||'Ошибка'),d.ok);
+    if (d.ok) {
+      intAlert('✅ Тестовый лид создан в Bitrix24!', true);
+    } else {
+      var msg = '❌ ' + (d.error || 'Ошибка');
+      if (d.b24_response) msg += ' · ' + JSON.stringify(d.b24_response);
+      intAlert(msg, false);
+    }
   }).catch(()=>{ btn.disabled=false; btn.innerHTML=orig; intAlert('Ошибка сети',false); });
 }
 function addCfRow(key,val) {

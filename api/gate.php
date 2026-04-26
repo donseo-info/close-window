@@ -116,6 +116,7 @@ function send_bitrix24(string $webhook, string $phone, string $messenger, string
         'COMMENTS'  => implode("\n", $comments),
     ], $customFields);
 
+    $payload = http_build_query(['fields' => $fields]);
     $ch = curl_init();
     curl_setopt_array($ch, [
         CURLOPT_URL            => rtrim($webhook, '/') . '/crm.lead.add.json',
@@ -123,10 +124,19 @@ function send_bitrix24(string $webhook, string $phone, string $messenger, string
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 15,
         CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_POSTFIELDS     => http_build_query(['fields' => $fields]),
+        CURLOPT_POSTFIELDS     => $payload,
     ]);
-    curl_exec($ch);
+    $response = curl_exec($ch);
+    $curlErr  = curl_error($ch);
     curl_close($ch);
+
+    $logDir = dirname(__DIR__) . '/db';
+    if (is_dir($logDir)) {
+        $logLine = '[' . date('Y-m-d H:i:s') . '] B24 payload=' . $payload
+            . ' | response=' . ($response ?: 'empty')
+            . ($curlErr ? ' | curl_error=' . $curlErr : '') . PHP_EOL;
+        @file_put_contents($logDir . '/b24.log', $logLine, FILE_APPEND | LOCK_EX);
+    }
 }
 
 $action   = g($raw, 'action');

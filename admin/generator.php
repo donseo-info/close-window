@@ -1,7 +1,7 @@
 <?php
 /**
- * generator.php — генерация JS-файлов попапов из конфига
- * Вызывается из admin/index.php при сохранении настроек
+ * generator.php — генерация JS попапов A/B/C из конфига
+ * Вызывается из api/popup.php и admin/index.php
  */
 
 /* ── Escape строки для вставки в JS single-quoted string ── */

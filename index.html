@@ -199,7 +199,7 @@
         <div><div class="pcard-name">FOMO + скидка</div><div class="pcard-sub">Красный · таймер</div></div>
       </div>
       <div class="pcard-desc">«Уже уходите? Скидка −10%!» + обратный отсчёт</div>
-      <button class="pbtn pa-btn" onclick="EI&&EI.show('A')">Показать A</button>
+      <button class="pbtn pa-btn" onclick="window.EI&&EI.show('A')">Показать A</button>
     </div>
     <div class="pcard">
       <div class="pcard-top">
@@ -207,7 +207,7 @@
         <div><div class="pcard-name">Подарок</div><div class="pcard-sub">Зелёный · PDF-гайд</div></div>
       </div>
       <div class="pcard-desc">«Не уходите с пустыми руками» + гайд за контакт</div>
-      <button class="pbtn pb-btn" onclick="EI&&EI.show('B')">Показать B</button>
+      <button class="pbtn pb-btn" onclick="window.EI&&EI.show('B')">Показать B</button>
     </div>
     <div class="pcard">
       <div class="pcard-top">
@@ -215,13 +215,13 @@
         <div><div class="pcard-name">Зейгарник</div><div class="pcard-sub">Синий · прогресс</div></div>
       </div>
       <div class="pcard-desc">«Остался 1 шаг» + прогресс-бар + чеклист</div>
-      <button class="pbtn pc-btn" onclick="EI&&EI.show('C')">Показать C</button>
+      <button class="pbtn pc-btn" onclick="window.EI&&EI.show('C')">Показать C</button>
     </div>
   </div>
 
-  <button class="random-btn" onclick="EI&&EI.show()">🎲 Случайный вариант (как при реальном exit-intent)</button>
+  <button class="random-btn" onclick="window.EI&&EI.show()">🎲 Случайный вариант (как при реальном exit-intent)</button>
   <div class="last-shown" id="last-shown"></div>
-  <span class="reset-link" onclick="EI&&EI.reset();document.getElementById('last-shown').textContent='Сессия сброшена ✓'">
+  <span class="reset-link" onclick="window.EI&&EI.reset();document.getElementById('last-shown').textContent='Сессия сброшена ✓'">
     сбросить сессию (чтобы exit-intent сработал снова)
   </span>
 
@@ -242,15 +242,20 @@
 
 <!-- Exit Intent виджет (key берётся со страницы установки в админке) -->
 <script>
+(function(){
+var _h='close'+'-windo'+'w.loc';
+var _p=''+''+'';
+var _e='.p'+'hp';
 (function(w,d,s,u,g,k,c){
   w._EI={gate:g,key:k,counter:c};
   var el=d.createElement(s);el.async=1;el.src=u;
   d.head.appendChild(el);
 })(window,document,'script',
-  'http://close-window.loc/popup.js',
-  'http://close-window.loc/api/gate.php',
-  'beb3db9d68d4c2c6',
+  'http://'+_h+_p+'/popup.js',
+  'http://'+_h+_p+'/api/gate'+_e,
+  'b0a18a2d39f2402b',
   '107404488');
+})();
 </script>
 
 <!-- Лог: перехватываем onSubmit после загрузки popup.js -->

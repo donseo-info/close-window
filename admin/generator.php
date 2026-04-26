@@ -78,6 +78,21 @@ function svgMx(int $sz = 16): string {
     return '<svg width="'.$sz.'" height="'.$sz.'" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 2c4.418 0 8 3.582 8 8s-3.582 8-8 8a7.96 7.96 0 01-4.076-1.115L6 19.5l.615-1.924A7.96 7.96 0 014 12c0-4.418 3.582-8 8-8zm-3 5v2h6V9H9zm0 4v2h4v-2H9z"/></svg>';
 }
 
+/* ── Маска телефона — общая для всех попапов ── */
+function jsPMask(): string {
+    return "function pMask(id){var el=document.getElementById(id);if(!el)return;"
+         . "function fmt(v){v=v.replace(/\\D/g,'');if(!v)return '';"
+         . "if(v[0]==='8')v='7'+v.slice(1);if(v[0]!=='7')v='7'+v;"
+         . "v=v.slice(0,11);var r='+7';"
+         . "if(v.length>1)r+=' ('+v.slice(1,Math.min(4,v.length));"
+         . "if(v.length>=4)r+=') '+v.slice(4,Math.min(7,v.length));"
+         . "if(v.length>=7)r+='-'+v.slice(7,Math.min(9,v.length));"
+         . "if(v.length>=9)r+='-'+v.slice(9,11);return r;}"
+         . "el.addEventListener('focus',function(){if(!el.value)el.value='+7 (';});"
+         . "el.addEventListener('blur',function(){if(el.value==='+7 ('||el.value==='+7')el.value='';});"
+         . "el.addEventListener('input',function(){var v=fmt(el.value);el.value=v;});}";
+}
+
 /* ════════════════════════════════════════════════════════
    POPUP A — Скидка + таймер
 ════════════════════════════════════════════════════════ */
@@ -172,17 +187,7 @@ function generatePopupA(array $c): string {
          . "m.textContent=String(Math.floor(total/60)).padStart(2,'0');"
          . "s.textContent=String(total%60).padStart(2,'0');"
          . "if(total--<=0)clearInterval(_t);}tick();_t=setInterval(tick,1000);}"
-         . "function pMask(id){var el=document.getElementById(id);if(!el)return;"
-         . "function fmt(v){v=v.replace(/\D/g,'');if(!v)return '';"
-         . "if(v[0]==='8')v='7'+v.slice(1);if(v[0]!=='7')v='7'+v;"
-         . "v=v.slice(0,11);var r='+7';"
-         . "if(v.length>1)r+=' ('+v.slice(1,Math.min(4,v.length));"
-         . "if(v.length>=4)r+=') '+v.slice(4,Math.min(7,v.length));"
-         . "if(v.length>=7)r+='-'+v.slice(7,Math.min(9,v.length));"
-         . "if(v.length>=9)r+='-'+v.slice(9,11);return r;}"
-         . "el.addEventListener('focus',function(){if(!el.value)el.value='+7 (';});"
-         . "el.addEventListener('blur',function(){if(el.value==='+7 ('||el.value==='+7')el.value='';});"
-         . "el.addEventListener('input',function(){var v=fmt(el.value);el.value=v;});}"
+         . jsPMask()
          . "function buildDOM(){var ov=document.createElement('div');ov.id='pa-overlay';"
          . "ov.innerHTML='{$domQ}';document.body.appendChild(ov);"
          . "pMask('pa-tel');"
@@ -304,17 +309,7 @@ function generatePopupB(array $c): string {
          . "function injectStyles(){if(document.getElementById('pb-styles'))return;"
          . "var s=document.createElement('style');s.id='pb-styles';"
          . "s.textContent='{$cssQ}';document.head.appendChild(s);}"
-         . "function pMask(id){var el=document.getElementById(id);if(!el)return;"
-         . "function fmt(v){v=v.replace(/\D/g,'');if(!v)return '';"
-         . "if(v[0]==='8')v='7'+v.slice(1);if(v[0]!=='7')v='7'+v;"
-         . "v=v.slice(0,11);var r='+7';"
-         . "if(v.length>1)r+=' ('+v.slice(1,Math.min(4,v.length));"
-         . "if(v.length>=4)r+=') '+v.slice(4,Math.min(7,v.length));"
-         . "if(v.length>=7)r+='-'+v.slice(7,Math.min(9,v.length));"
-         . "if(v.length>=9)r+='-'+v.slice(9,11);return r;}"
-         . "el.addEventListener('focus',function(){if(!el.value)el.value='+7 (';});"
-         . "el.addEventListener('blur',function(){if(el.value==='+7 ('||el.value==='+7')el.value='';});"
-         . "el.addEventListener('input',function(){var v=fmt(el.value);el.value=v;});}"
+         . jsPMask()
          . "function buildDOM(){var ov=document.createElement('div');ov.id='pb-overlay';"
          . "ov.innerHTML='{$domQ}';document.body.appendChild(ov);"
          . "pMask('pb-tel');"
@@ -449,17 +444,7 @@ function generatePopupC(array $c): string {
          . "function injectStyles(){if(document.getElementById('pc-styles'))return;"
          . "var s=document.createElement('style');s.id='pc-styles';"
          . "s.textContent='{$cssQ}';document.head.appendChild(s);}"
-         . "function pMask(id){var el=document.getElementById(id);if(!el)return;"
-         . "function fmt(v){v=v.replace(/\D/g,'');if(!v)return '';"
-         . "if(v[0]==='8')v='7'+v.slice(1);if(v[0]!=='7')v='7'+v;"
-         . "v=v.slice(0,11);var r='+7';"
-         . "if(v.length>1)r+=' ('+v.slice(1,Math.min(4,v.length));"
-         . "if(v.length>=4)r+=') '+v.slice(4,Math.min(7,v.length));"
-         . "if(v.length>=7)r+='-'+v.slice(7,Math.min(9,v.length));"
-         . "if(v.length>=9)r+='-'+v.slice(9,11);return r;}"
-         . "el.addEventListener('focus',function(){if(!el.value)el.value='+7 (';});"
-         . "el.addEventListener('blur',function(){if(el.value==='+7 ('||el.value==='+7')el.value='';});"
-         . "el.addEventListener('input',function(){var v=fmt(el.value);el.value=v;});}"
+         . jsPMask()
          . "function buildDOM(){var ov=document.createElement('div');ov.id='pc-overlay';"
          . "ov.innerHTML='{$domQ}';document.body.appendChild(ov);"
          . "pMask('pc-tel');"

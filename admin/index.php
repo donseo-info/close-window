@@ -14,7 +14,8 @@ if ($postAction === 'create_site') {
     header('Content-Type: application/json');
     $name   = trim($_POST['name']   ?? '');
     $domain = strtolower(preg_replace('/^www\./i', '', trim($_POST['domain'] ?? '')));
-    if (!$name) { echo json_encode(['ok' => false, 'error' => 'Название обязательно']); R::close(); exit; }
+    if (!$name)   { echo json_encode(['ok' => false, 'error' => 'Название обязательно']); R::close(); exit; }
+    if (!$domain) { echo json_encode(['ok' => false, 'error' => 'Домен обязателен']);     R::close(); exit; }
     $apiKey = bin2hex(random_bytes(8));
     R::exec(
         "INSERT INTO sites (domain, name, api_key, is_active, created_at, updated_at) VALUES (?,?,?,1,datetime('now','localtime'),datetime('now','localtime'))",
@@ -166,7 +167,7 @@ if ($postAction === 'test_bitrix24') {
         'COMMENTS'  => 'Тестовый лид из админки',
     ], $customFields);
     $ch = curl_init();
-    curl_setopt_array($ch, [CURLOPT_URL => rtrim($webhook,'/').'/crm.lead.add.json', CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_SSL_VERIFYPEER => false, CURLOPT_POSTFIELDS => http_build_query(['fields' => $fields])]);
+    curl_setopt_array($ch, [CURLOPT_URL => rtrim($webhook,'/').'/crm.lead.add.json', CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_POSTFIELDS => http_build_query(['fields' => $fields])]);
     $raw = curl_exec($ch); $err = curl_error($ch); curl_close($ch);
     if ($err) { echo json_encode(['ok' => false, 'error' => $err]); R::close(); exit; }
     $res = json_decode($raw, true);

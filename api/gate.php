@@ -123,7 +123,6 @@ function send_bitrix24(string $webhook, string $phone, string $messenger, string
         CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 15,
-        CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_POSTFIELDS     => $payload,
     ]);
     $response = curl_exec($ch);
@@ -224,6 +223,7 @@ if ($action === 'lead') {
 
     $phone     = g($raw, 'phone');
     $messenger = g($raw, 'messenger');
+    if (!in_array($messenger, ['tg', 'wa', 'mx', ''], true)) $messenger = '';
 
     if (!$phone) {
         gate_log('REJECT', 'phone required');

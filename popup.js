@@ -225,10 +225,6 @@
     });
   }
 
-  function triggerRandom() {
-    showVariant(_chosenVariant, false);
-  }
-
   /* ── 7. Exit-intent триггер: курсор уходит за верхний край ── */
   var fired = false;
   document.addEventListener('mouseout', function (e) {
@@ -237,7 +233,7 @@
     if (to) return;
     if (e.clientY > 10) return;
     fired = true;
-    triggerRandom();
+    showVariant(_chosenVariant, false);
   });
 
   /* ── 8. Публичное API (для тестовых страниц) ── */

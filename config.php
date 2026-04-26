@@ -72,19 +72,20 @@ function db_ensure_init() {
 function db_migrate() {
     /* Добавляем колонку domain в popup_opens */
     $cols = R::getAll("PRAGMA table_info(popup_opens)");
-    if (!array_filter($cols, fn($c) => $c['name'] === 'domain')) {
+    if (!array_filter($cols, function($c) { return $c['name'] === 'domain'; })) {
         R::exec("ALTER TABLE popup_opens ADD COLUMN domain TEXT NOT NULL DEFAULT ''");
     }
 
     /* Добавляем колонку domain в popup_leads */
     $cols = R::getAll("PRAGMA table_info(popup_leads)");
-    if (!array_filter($cols, fn($c) => $c['name'] === 'domain')) {
+    if (!array_filter($cols, function($c) { return $c['name'] === 'domain'; })) {
         R::exec("ALTER TABLE popup_leads ADD COLUMN domain TEXT NOT NULL DEFAULT ''");
     }
 
     /* Мигрируем popup_config: добавляем колонку domain и меняем PK */
     $cols = R::getAll("PRAGMA table_info(popup_config)");
-    if (!array_filter($cols, fn($c) => $c['name'] === 'domain')) {
+    if (!array_filter($cols, function($c) { return $c['name'] === 'domain'; })) {
+        R::exec("BEGIN");
         R::exec("CREATE TABLE popup_config_v2 (
             domain     TEXT    NOT NULL DEFAULT '',
             variant    TEXT    NOT NULL,
@@ -96,12 +97,13 @@ function db_migrate() {
                  SELECT '', variant, config, updated_at FROM popup_config");
         R::exec("DROP TABLE popup_config");
         R::exec("ALTER TABLE popup_config_v2 RENAME TO popup_config");
+        R::exec("COMMIT");
     }
 
     /* Добавляем site_id в popup_leads, popup_opens, popup_config */
     foreach (['popup_leads', 'popup_opens', 'popup_config'] as $tbl) {
         $cols = R::getAll("PRAGMA table_info({$tbl})");
-        if (!array_filter($cols, fn($c) => $c['name'] === 'site_id')) {
+        if (!array_filter($cols, function($c) { return $c['name'] === 'site_id'; })) {
             R::exec("ALTER TABLE {$tbl} ADD COLUMN site_id INTEGER");
         }
     }

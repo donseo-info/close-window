@@ -1032,48 +1032,6 @@ function addCfRow(key,val) {
         'sites_active' => (int)R::getCell('SELECT COUNT(*) FROM sites WHERE is_active=1'),
     ];
 
-    $allLeads = $allOpens = [];
-    $allLeadsTotal = $allLeadsPages = $allOpensTotal = $allOpensPages = 0;
-    if ($view === 'all_stats') {
-        $subtab = $_GET['subtab'] ?? 'leads';
-        $siteMap = [];
-        foreach ($sites as $s) { $siteMap[(int)$s['id']] = $s['domain']; }
-
-        $allLeadsTotal = (int)R::getCell('SELECT COUNT(*) FROM popup_leads');
-        $allLeadsPages = max(1, (int)ceil($allLeadsTotal / $perPage));
-        $allOpensTotal = (int)R::getCell('SELECT COUNT(*) FROM popup_opens');
-        $allOpensPages = max(1, (int)ceil($allOpensTotal / $perPage));
-
-        if ($subtab === 'leads') {
-            $rawLeads = R::getAll(
-                'SELECT id, variant, phone, messenger, ym_client_id, has_ym, url, created_at,
-                        site_id, domain AS lead_domain
-                 FROM popup_leads ORDER BY created_at DESC LIMIT ? OFFSET ?',
-                [$perPage, $offset]
-            );
-            foreach ($rawLeads as &$lr) {
-                $lr['site_domain'] = ($lr['site_id'] && isset($siteMap[(int)$lr['site_id']]))
-                    ? $siteMap[(int)$lr['site_id']] : ($lr['lead_domain'] ?: '—');
-            }
-            unset($lr);
-            $allLeads = $rawLeads;
-        } else {
-            $rawOpens = R::getAll(
-                'SELECT id, variant, ym_client_id, has_ym, url, referrer, created_at,
-                        site_id, domain AS open_domain
-                 FROM popup_opens ORDER BY created_at DESC LIMIT ? OFFSET ?',
-                [$perPage, $offset]
-            );
-            foreach ($rawOpens as &$or) {
-                $or['site_domain'] = ($or['site_id'] && isset($siteMap[(int)$or['site_id']]))
-                    ? $siteMap[(int)$or['site_id']] : ($or['open_domain'] ?: '—');
-            }
-            unset($or);
-            $allOpens = $rawOpens;
-        }
-    } else {
-        $subtab = 'leads';
-    }
 
     R::close();
 ?>
@@ -1223,89 +1181,70 @@ function addCfRow(key,val) {
 
   <?php elseif ($view === 'all_stats'): ?>
 
-  <div class="d-flex align-items-center justify-content-between mb-3">
+  <div class="d-flex align-items-center justify-content-between mb-4">
     <div>
       <div style="font-size:18px;font-weight:700">Вся статистика</div>
-      <div style="font-size:12px;color:#94a3b8">Все данные по всем сайтам</div>
+      <div style="font-size:12px;color:#94a3b8">Сводные данные по всем сайтам</div>
     </div>
     <button class="btn btn-sm btn-outline-danger" id="btn-clear-all"><i class="bi bi-trash me-1"></i>Очистить все данные</button>
   </div>
 
-  <ul class="nav nav-tabs mb-3" style="font-size:13px">
-    <li class="nav-item">
-      <a class="nav-link <?= $subtab==='leads'?'active':'' ?>" href="?view=all_stats&subtab=leads">
-        Заявки <span class="badge bg-secondary ms-1" style="font-size:10px"><?= $allLeadsTotal ?></span>
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link <?= $subtab==='opens'?'active':'' ?>" href="?view=all_stats&subtab=opens">
-        Открытия <span class="badge bg-secondary ms-1" style="font-size:10px"><?= $allOpensTotal ?></span>
-      </a>
-    </li>
-  </ul>
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-radius:10px">
+        <div class="card-body py-3 px-3">
+          <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Открытий всего</div>
+          <div style="font-size:28px;font-weight:800;color:#1e3a8a"><?= $summary['opens_total'] ?></div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">Сегодня: <strong><?= $summary['opens_today'] ?></strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-radius:10px">
+        <div class="card-body py-3 px-3">
+          <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Заявок всего</div>
+          <div style="font-size:28px;font-weight:800;color:#16a34a"><?= $summary['leads_total'] ?></div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">Сегодня: <strong><?= $summary['leads_today'] ?></strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-radius:10px">
+        <div class="card-body py-3 px-3">
+          <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Конверсия</div>
+          <div style="font-size:28px;font-weight:800;color:#d97706"><?= $summary['opens_total'] > 0 ? round($summary['leads_total'] / $summary['opens_total'] * 100, 1) : 0 ?>%</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">открытия → заявки</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-radius:10px">
+        <div class="card-body py-3 px-3">
+          <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Сайты</div>
+          <div style="font-size:28px;font-weight:800;color:#0f172a"><?= $summary['sites_active'] ?></div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">активных из <?= $summary['sites_total'] ?></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <?php if ($subtab === 'leads'): ?>
-  <?php if (!empty($allLeads)): ?>
-  <div class="card border-0 ct-table mb-3">
+  <?php if (!empty($sites)): ?>
+  <div class="section-title mb-2" style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8">По сайтам</div>
+  <div class="card border-0 ct-table">
     <table class="table table-hover mb-0 ct-table">
-      <thead><tr><th>#</th><th>Дата</th><th>Сайт</th><th>Вариант</th><th>Телефон</th><th>Мессенджер</th><th>YM</th></tr></thead>
+      <thead><tr><th>Домен</th><th>Открытий</th><th>Заявок</th><th>Конверсия</th></tr></thead>
       <tbody>
-      <?php foreach ($allLeads as $r): ?>
+      <?php foreach ($sites as $s): ?>
       <tr>
-        <td style="color:#94a3b8"><?= esc($r['id']) ?></td>
-        <td style="white-space:nowrap;font-size:12px"><?= esc($r['created_at']) ?></td>
-        <td style="font-size:12px"><?= esc($r['site_domain']) ?></td>
-        <td><?= variantBadge($r['variant']) ?></td>
-        <td class="fw-semibold"><?= fmtPhone($r['phone']) ?></td>
-        <td><?= messengerBadge($r['messenger']) ?></td>
-        <td><?= $r['has_ym'] ? '<span class="badge bg-success" style="font-size:10px">✓</span>' : '<span class="badge bg-secondary" style="font-size:10px">нет</span>' ?></td>
+        <td><a href="?site=<?= $s['id'] ?>&tab=stats" style="color:#1e3a8a;font-weight:600;text-decoration:none"><?= esc($s['domain'] ?: $s['name'] ?: '—') ?></a></td>
+        <td><?= (int)$s['opens_count'] ?></td>
+        <td style="color:#16a34a;font-weight:600"><?= (int)$s['leads_count'] ?></td>
+        <td><?= $s['opens_count'] > 0 ? round($s['leads_count'] / $s['opens_count'] * 100, 1) : 0 ?>%</td>
       </tr>
       <?php endforeach ?>
       </tbody>
     </table>
   </div>
-  <?php if ($allLeadsPages > 1): ?>
-  <nav><ul class="pagination pagination-sm justify-content-center">
-    <?php for ($p = 1; $p <= $allLeadsPages; $p++): ?>
-    <li class="page-item <?= $p===$page?'active':'' ?>"><a class="page-link" href="?view=all_stats&subtab=leads&page=<?= $p ?>"><?= $p ?></a></li>
-    <?php endfor ?>
-  </ul></nav>
-  <?php endif ?>
-  <?php else: ?>
-  <div class="empty-state"><i class="bi bi-inbox"></i><p>Заявок пока нет</p></div>
-  <?php endif ?>
-
-  <?php else: ?>
-  <?php if (!empty($allOpens)): ?>
-  <div class="card border-0 ct-table mb-3">
-    <table class="table table-hover mb-0 ct-table">
-      <thead><tr><th>#</th><th>Дата</th><th>Сайт</th><th>Вариант</th><th>Страница</th><th>YM</th></tr></thead>
-      <tbody>
-      <?php foreach ($allOpens as $r): ?>
-      <tr>
-        <td style="color:#94a3b8"><?= esc($r['id']) ?></td>
-        <td style="white-space:nowrap;font-size:12px"><?= esc($r['created_at']) ?></td>
-        <td style="font-size:12px"><?= esc($r['site_domain']) ?></td>
-        <td><?= variantBadge($r['variant']) ?></td>
-        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">
-          <?php if (!empty($r['url'])): ?><a href="<?= esc($r['url']) ?>" target="_blank" style="color:#3b82f6"><?= esc(preg_replace('#^https?://#','',$r['url'])) ?></a><?php else: ?>—<?php endif ?>
-        </td>
-        <td><?= $r['has_ym'] ? '<span class="badge bg-success" style="font-size:10px">✓</span>' : '<span class="badge bg-secondary" style="font-size:10px">нет</span>' ?></td>
-      </tr>
-      <?php endforeach ?>
-      </tbody>
-    </table>
-  </div>
-  <?php if ($allOpensPages > 1): ?>
-  <nav><ul class="pagination pagination-sm justify-content-center">
-    <?php for ($p = 1; $p <= $allOpensPages; $p++): ?>
-    <li class="page-item <?= $p===$page?'active':'' ?>"><a class="page-link" href="?view=all_stats&subtab=opens&page=<?= $p ?>"><?= $p ?></a></li>
-    <?php endfor ?>
-  </ul></nav>
-  <?php endif ?>
-  <?php else: ?>
-  <div class="empty-state"><i class="bi bi-inbox"></i><p>Открытий пока нет</p></div>
-  <?php endif ?>
   <?php endif ?>
 
   <?php endif ?>

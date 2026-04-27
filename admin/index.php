@@ -181,6 +181,17 @@ if ($postAction === 'test_bitrix24') {
 }
 
 /* ── Сброс статистики ── */
+if ($postAction === 'delete_lead') {
+    header('Content-Type: application/json');
+    $leadId = (int)($_POST['lead_id'] ?? 0);
+    $siteId = (int)($_POST['site_id'] ?? 0);
+    if ($leadId && $siteId) {
+        R::exec('DELETE FROM popup_leads WHERE id=? AND site_id=?', [$leadId, $siteId]);
+    }
+    echo json_encode(['ok' => true]);
+    R::close(); exit;
+}
+
 if ($postAction === 'clear_stats') {
     header('Content-Type: application/json');
     $siteId = (int)($_POST['site_id'] ?? 0);
@@ -446,10 +457,10 @@ function variantBadge($v) {
   <div class="section-title">Последние заявки</div>
   <div class="card border-0 ct-table mb-3">
     <table class="table table-hover mb-0 ct-table">
-      <thead><tr><th>#</th><th>Дата</th><th>Вариант</th><th>Телефон</th><th>Мессенджер</th><th>Страница</th><th>YM ClientID</th><th>Метрика</th></tr></thead>
+      <thead><tr><th>#</th><th>Дата</th><th>Вариант</th><th>Телефон</th><th>Мессенджер</th><th>Страница</th><th>YM ClientID</th><th>Метрика</th><th></th></tr></thead>
       <tbody>
       <?php foreach($leadRows as $r): ?>
-      <tr>
+      <tr id="lead-row-<?= (int)$r['id'] ?>">
         <td style="color:#94a3b8"><?= esc($r['id']) ?></td>
         <td style="white-space:nowrap"><?= esc($r['created_at']) ?></td>
         <td><?= variantBadge($r['variant']) ?></td>
@@ -462,6 +473,7 @@ function variantBadge($v) {
         </td>
         <td><?= $r['ym_client_id'] ? '<code style="font-size:11px">'.esc($r['ym_client_id']).'</code>' : '<span class="text-muted">—</span>' ?></td>
         <td><?= $r['has_ym'] ? '<span class="badge bg-success" style="font-size:10px">✓</span>' : '<span class="badge bg-secondary" style="font-size:10px">нет</span>' ?></td>
+        <td><button class="btn btn-sm border-0 bg-transparent text-danger p-0" onclick="deleteLead(<?= (int)$r['id'] ?>)" title="Удалить заявку"><i class="bi bi-trash"></i></button></td>
       </tr>
       <?php endforeach ?>
       </tbody>
@@ -1161,6 +1173,17 @@ function toggleSite(id, btn) {
     var badge = document.getElementById('badge-'+id);
     if (d.active) { badge.className='badge-on'; badge.textContent='активен'; }
     else { badge.className='badge-off'; badge.textContent='выключен'; }
+  });
+}
+
+function deleteLead(id) {
+  if (!confirm('Удалить заявку #' + id + '?')) return;
+  var fd = new FormData();
+  fd.append('action', 'delete_lead');
+  fd.append('lead_id', id);
+  fd.append('site_id', SITE_ID);
+  fetch(window.location.pathname, {method:'POST',body:fd}).then(r=>r.json()).then(function(d){
+    if (d.ok) { var row = document.getElementById('lead-row-' + id); if (row) row.remove(); }
   });
 }
 

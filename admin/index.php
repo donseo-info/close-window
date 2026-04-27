@@ -906,6 +906,17 @@ if (btnClear) btnClear.addEventListener('click', function(){
   fetch(window.location.pathname, {method:'POST',body:fd}).then(r=>r.json()).then(d=>{ if(d.ok) location.reload(); });
 });
 
+function deleteLead(id) {
+  if (!confirm('Удалить заявку #' + id + '?')) return;
+  var fd = new FormData();
+  fd.append('action', 'delete_lead');
+  fd.append('lead_id', id);
+  fd.append('site_id', SITE_ID);
+  fetch(window.location.pathname, {method:'POST',body:fd}).then(r=>r.json()).then(function(d){
+    if (d.ok) { var row = document.getElementById('lead-row-' + id); if (row) row.remove(); }
+  });
+}
+
 /* Редактировать сайт */
 function openEditModal() { new bootstrap.Modal(document.getElementById('editSiteModal')).show(); }
 function saveSite() {
@@ -1173,17 +1184,6 @@ function toggleSite(id, btn) {
     var badge = document.getElementById('badge-'+id);
     if (d.active) { badge.className='badge-on'; badge.textContent='активен'; }
     else { badge.className='badge-off'; badge.textContent='выключен'; }
-  });
-}
-
-function deleteLead(id) {
-  if (!confirm('Удалить заявку #' + id + '?')) return;
-  var fd = new FormData();
-  fd.append('action', 'delete_lead');
-  fd.append('lead_id', id);
-  fd.append('site_id', SITE_ID);
-  fetch(window.location.pathname, {method:'POST',body:fd}).then(r=>r.json()).then(function(d){
-    if (d.ok) { var row = document.getElementById('lead-row-' + id); if (row) row.remove(); }
   });
 }
 

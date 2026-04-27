@@ -1017,6 +1017,16 @@ function addCfRow(key,val) {
         ORDER BY s.created_at DESC
     ");
 
+    $today = date('Y-m-d');
+    $summary = [
+        'opens_total'  => (int)R::getCell('SELECT COUNT(*) FROM popup_opens'),
+        'leads_total'  => (int)R::getCell('SELECT COUNT(*) FROM popup_leads'),
+        'opens_today'  => (int)R::getCell("SELECT COUNT(*) FROM popup_opens WHERE DATE(created_at)=?", [$today]),
+        'leads_today'  => (int)R::getCell("SELECT COUNT(*) FROM popup_leads WHERE DATE(created_at)=?", [$today]),
+        'sites_total'  => count($sites),
+        'sites_active' => (int)R::getCell('SELECT COUNT(*) FROM sites WHERE is_active=1'),
+    ];
+
     R::close();
 
     function esc($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
@@ -1067,6 +1077,45 @@ function addCfRow(key,val) {
     <button class="btn btn-primary btn-sm" onclick="openAddModal()">
       <i class="bi bi-plus-lg me-1"></i> Добавить сайт
     </button>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-radius:10px">
+        <div class="card-body py-3 px-3">
+          <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Открытий всего</div>
+          <div style="font-size:24px;font-weight:800;color:#1e3a8a"><?= $summary['opens_total'] ?></div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">Сегодня: <strong><?= $summary['opens_today'] ?></strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-radius:10px">
+        <div class="card-body py-3 px-3">
+          <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Заявок всего</div>
+          <div style="font-size:24px;font-weight:800;color:#16a34a"><?= $summary['leads_total'] ?></div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">Сегодня: <strong><?= $summary['leads_today'] ?></strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-radius:10px">
+        <div class="card-body py-3 px-3">
+          <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Конверсия</div>
+          <div style="font-size:24px;font-weight:800;color:#d97706"><?= $summary['opens_total'] > 0 ? round($summary['leads_total'] / $summary['opens_total'] * 100, 1) : 0 ?>%</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">открытия → заявки</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-radius:10px">
+        <div class="card-body py-3 px-3">
+          <div style="font-size:11px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Сайты</div>
+          <div style="font-size:24px;font-weight:800;color:#0f172a"><?= $summary['sites_active'] ?></div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px">активных из <?= $summary['sites_total'] ?></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <?php if (empty($sites)): ?>

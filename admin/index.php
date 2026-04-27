@@ -205,6 +205,24 @@ if ($postAction === 'clear_stats') {
     R::close(); exit;
 }
 
+/* ────────────────────────────────────────────────── helpers ── */
+function esc($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+function fmtPhone($p) {
+    $d = preg_replace('/\D/', '', $p ?? '');
+    if (strlen($d) === 11 && $d[0] === '7') return '+7 ('.substr($d,1,3).') '.substr($d,4,3).'-'.substr($d,7,2).'-'.substr($d,9,2);
+    return $p ?: '—';
+}
+function messengerBadge($m) {
+    $map = ['tg'=>['Telegram','#0088cc'],'wa'=>['WhatsApp','#25d366'],'mx'=>['Max','#6c3fff']];
+    if (!$m || !isset($map[$m])) return '<span class="text-muted">—</span>';
+    [$label,$color] = $map[$m];
+    return "<span class='badge' style='background:{$color};font-size:11px'>{$label}</span>";
+}
+function variantBadge($v) {
+    $c = ['A'=>'#e02020','B'=>'#1db954','C'=>'#2563eb'];
+    return "<span class='badge' style='background:".($c[$v]??'#888').";font-size:11px'>Вариант {$v}</span>";
+}
+
 /* ════════════════════════════════════════════════════
    РОУТИНГ — список сайтов или страница сайта
    ════════════════════════════════════════════════════ */
@@ -282,24 +300,6 @@ if ($siteId) {
     }
 
     R::close();
-
-/* ────────────────────────────────────────────────── helpers ── */
-function esc($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
-function fmtPhone($p) {
-    $d = preg_replace('/\D/', '', $p ?? '');
-    if (strlen($d) === 11 && $d[0] === '7') return '+7 ('.substr($d,1,3).') '.substr($d,4,3).'-'.substr($d,7,2).'-'.substr($d,9,2);
-    return $p ?: '—';
-}
-function messengerBadge($m) {
-    $map = ['tg'=>['Telegram','#0088cc'],'wa'=>['WhatsApp','#25d366'],'mx'=>['Max','#6c3fff']];
-    if (!$m || !isset($map[$m])) return '<span class="text-muted">—</span>';
-    [$label,$color] = $map[$m];
-    return "<span class='badge' style='background:{$color};font-size:11px'>{$label}</span>";
-}
-function variantBadge($v) {
-    $c = ['A'=>'#e02020','B'=>'#1db954','C'=>'#2563eb'];
-    return "<span class='badge' style='background:".($c[$v]??'#888').";font-size:11px'>Вариант {$v}</span>";
-}
 
     $activeVar = strtoupper($_GET['variant'] ?? 'A');
     if (!in_array($activeVar, ['A','B','C'])) $activeVar = 'A';

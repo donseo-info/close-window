@@ -1017,7 +1017,12 @@ function addCfRow(key,val) {
         ORDER BY s.created_at DESC
     ");
 
-    $today = date('Y-m-d');
+    $today   = date('Y-m-d');
+    $view    = $_GET['view'] ?? 'sites';
+    $perPage = 50;
+    $page    = max(1, (int)($_GET['page'] ?? 1));
+    $offset  = ($page - 1) * $perPage;
+
     $summary = [
         'opens_total'  => (int)R::getCell('SELECT COUNT(*) FROM popup_opens'),
         'leads_total'  => (int)R::getCell('SELECT COUNT(*) FROM popup_leads'),
@@ -1027,9 +1032,21 @@ function addCfRow(key,val) {
         'sites_active' => (int)R::getCell('SELECT COUNT(*) FROM sites WHERE is_active=1'),
     ];
 
-    R::close();
+    $allLeads = $allLeadsTotal = $allLeadsPages = 0;
+    if ($view === 'all_stats') {
+        $allLeadsTotal = (int)R::getCell('SELECT COUNT(*) FROM popup_leads');
+        $allLeadsPages = max(1, (int)ceil($allLeadsTotal / $perPage));
+        $allLeads = R::getAll(
+            'SELECT pl.*, COALESCE(s.domain, pl.domain) AS site_domain
+             FROM popup_leads pl
+             LEFT JOIN sites s ON s.id = pl.site_id
+             ORDER BY pl.created_at DESC
+             LIMIT ? OFFSET ?',
+            [$perPage, $offset]
+        );
+    }
 
-    function esc($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+    R::close();
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -1064,11 +1081,16 @@ function addCfRow(key,val) {
     <div class="dot"><i class="bi bi-cursor-fill" style="font-size:12px"></i></div>
     Exit Intent
   </div>
+  <nav class="d-flex gap-1">
+    <a href="?" class="btn btn-sm <?= $view==='sites'?'btn-primary':'btn-outline-secondary border-0 text-secondary' ?>"><i class="bi bi-globe2 me-1"></i>Сайты</a>
+    <a href="?view=all_stats" class="btn btn-sm <?= $view==='all_stats'?'btn-primary':'btn-outline-secondary border-0 text-secondary' ?>"><i class="bi bi-bar-chart me-1"></i>Вся статистика</a>
+  </nav>
   <div style="color:#94a3b8;font-size:11px"><?= date('d.m.Y H:i') ?></div>
 </header>
 
 <div class="container-fluid px-3 px-md-4 py-4" style="max-width:960px">
 
+  <?php if ($view === 'sites'): ?>
   <div class="d-flex align-items-center justify-content-between mb-4">
     <div>
       <div style="font-size:18px;font-weight:700">Сайты</div>
@@ -1170,6 +1192,48 @@ function addCfRow(key,val) {
   </div>
   <?php endif ?>
 
+  <?php elseif ($view === 'all_stats'): ?>
+
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <div style="font-size:18px;font-weight:700">Вся статистика</div>
+      <div style="font-size:12px;color:#94a3b8">Все открытия и заявки по всем сайтам</div>
+    </div>
+    <button class="btn btn-sm btn-outline-danger" id="btn-clear-all"><i class="bi bi-trash me-1"></i>Очистить все данные</button>
+  </div>
+
+  <?php if (!empty($allLeads)): ?>
+  <div class="card border-0 ct-table mb-3">
+    <table class="table table-hover mb-0 ct-table">
+      <thead><tr><th>#</th><th>Дата</th><th>Сайт</th><th>Вариант</th><th>Телефон</th><th>Мессенджер</th><th>YM</th></tr></thead>
+      <tbody>
+      <?php foreach ($allLeads as $r): ?>
+      <tr>
+        <td style="color:#94a3b8"><?= esc($r['id']) ?></td>
+        <td style="white-space:nowrap;font-size:12px"><?= esc($r['created_at']) ?></td>
+        <td style="font-size:12px"><?= esc($r['site_domain'] ?: '—') ?></td>
+        <td><?= variantBadge($r['variant']) ?></td>
+        <td class="fw-semibold"><?= fmtPhone($r['phone']) ?></td>
+        <td><?= messengerBadge($r['messenger']) ?></td>
+        <td><?= $r['has_ym'] ? '<span class="badge bg-success" style="font-size:10px">✓</span>' : '<span class="badge bg-secondary" style="font-size:10px">нет</span>' ?></td>
+      </tr>
+      <?php endforeach ?>
+      </tbody>
+    </table>
+  </div>
+  <?php if ($allLeadsPages > 1): ?>
+  <nav><ul class="pagination pagination-sm justify-content-center">
+    <?php for ($p = 1; $p <= $allLeadsPages; $p++): ?>
+    <li class="page-item <?= $p===$page?'active':'' ?>"><a class="page-link" href="?view=all_stats&page=<?= $p ?>"><?= $p ?></a></li>
+    <?php endfor ?>
+  </ul></nav>
+  <?php endif ?>
+  <?php else: ?>
+  <div class="empty-state"><i class="bi bi-inbox"></i><p>Заявок пока нет</p></div>
+  <?php endif ?>
+
+  <?php endif ?>
+
 </div>
 
 <!-- Add Site Modal -->
@@ -1235,6 +1299,13 @@ function toggleSite(id, btn) {
     else { badge.className='badge-off'; badge.textContent='выключен'; }
   });
 }
+
+var btnClearAll = document.getElementById('btn-clear-all');
+if (btnClearAll) btnClearAll.addEventListener('click', function(){
+  if (!confirm('Удалить ВСЮ статистику по всем сайтам? Это действие необратимо.')) return;
+  var fd = new FormData(); fd.append('action','clear_stats');
+  fetch(window.location.pathname, {method:'POST',body:fd}).then(r=>r.json()).then(function(d){ if(d.ok) location.reload(); });
+});
 
 function deleteSite(id) {
   if (!confirm('Удалить сайт? Интеграции будут удалены. Статистика останется (site_id станет NULL).')) return;

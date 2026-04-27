@@ -1032,18 +1032,29 @@ function addCfRow(key,val) {
         'sites_active' => (int)R::getCell('SELECT COUNT(*) FROM sites WHERE is_active=1'),
     ];
 
-    $allLeads = $allLeadsTotal = $allLeadsPages = 0;
+    $allLeads = [];
+    $allLeadsTotal = $allLeadsPages = 0;
     if ($view === 'all_stats') {
         $allLeadsTotal = (int)R::getCell('SELECT COUNT(*) FROM popup_leads');
         $allLeadsPages = max(1, (int)ceil($allLeadsTotal / $perPage));
-        $allLeads = R::getAll(
-            'SELECT pl.*, COALESCE(s.domain, pl.domain) AS site_domain
-             FROM popup_leads pl
-             LEFT JOIN sites s ON s.id = pl.site_id
-             ORDER BY pl.created_at DESC
+        $rawLeads = R::getAll(
+            'SELECT id, variant, phone, messenger, ym_client_id, has_ym, url, created_at,
+                    site_id, domain AS lead_domain
+             FROM popup_leads
+             ORDER BY created_at DESC
              LIMIT ? OFFSET ?',
             [$perPage, $offset]
         );
+        /* Резолвим домен: из sites если site_id есть, иначе из поля domain */
+        $siteMap = [];
+        foreach ($sites as $s) { $siteMap[(int)$s['id']] = $s['domain']; }
+        foreach ($rawLeads as &$lr) {
+            $lr['site_domain'] = ($lr['site_id'] && isset($siteMap[(int)$lr['site_id']]))
+                ? $siteMap[(int)$lr['site_id']]
+                : ($lr['lead_domain'] ?: '—');
+        }
+        unset($lr);
+        $allLeads = $rawLeads;
     }
 
     R::close();
